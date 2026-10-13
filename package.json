@@ -1,0 +1,26 @@
+{
+  "name": "goldfinder-web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint:forbidden": "! grep -rn --include=*.ts --include=*.tsx --include=*.sql --include=*.css -e '확률' -e 'probab' -e '당첨률' -e '디지털정원' -e '포춘카드' -e '4만원' -e '1/3돈' app lib components ../db"
+  },
+  "dependencies": {
+    "next": "^15.5.0",
+    "pg": "^8.13.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.6.0"
+  }
+}

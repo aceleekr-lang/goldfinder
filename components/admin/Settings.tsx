@@ -1,0 +1,62 @@
+"use client";
+import { useEffect, useState } from "react";
+
+type Op = { id: string; name: string; role: string; active: boolean };
+type D = { ok: boolean; code?: string; settings: Record<string, { value: string; updated_at: string; updated_by: string | null }>; desk_secret_updated_at: string; operators: Op[] };
+const LABEL: Record<string, string> = { cooldown_sec: "별 태그 쿨다운(초)", entry_cap: "입장 상한(세션 수)", min_session_min: "최소 세션 시간(분) — 미만이면 뽑기권 보류", min_tag_interval_sec: "별 태그 최소 간격(초)",
+  stale_min: "이탈 추정(분)", expire_min: "자동 만료(분)", desk_code_sec: "수령소 코드 갱신 주기(초)" };
+const ERR: Record<string, string> = { PIN_FORMAT: "PIN은 4~8자리 숫자.", PIN_IN_USE: "다른 계정이 쓰는 PIN이에요 (PIN으로 직원을 식별하므로 중복 불가).", PIN_REQUIRED: "새 계정은 PIN이 필요해요.", ID_INVALID: "아이디는 영문 소문자·숫자·_ 2~20자.", LAST_ADMIN: "마지막 총괄 계정은 바꿀 수 없어요.", CANNOT_DEACTIVATE_SELF: "본인 계정은 비활성할 수 없어요.", VALUE_INVALID: "값을 확인하세요.", KEY_INVALID: "없는 설정 키." };
+
+// 총괄 전용: 운영 설정 + 수령소 코드 비밀키 + 계정·PIN
+export default function Settings() {
+  const [d, setD] = useState<D | null>(null);
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const [op, setOp] = useState<{ id: string; name: string; pin: string; role: string; active: boolean }>({ id: "", name: "", pin: "", role: "staff", active: true });
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = () => fetch("/api/admin/settings").then((r) => r.json()).then((j: D) => { setD(j); if (j.ok) setVals(Object.fromEntries(Object.entries(j.settings).map(([k, v]) => [k, v.value]))); });
+  useEffect(() => { load(); }, []);
+  const post = async (body: unknown, ok: string) => {
+    const r = await fetch("/api/admin/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json(); setMsg(j.ok ? ok : ERR[j.code] ?? `실패 (${j.code})`); load(); return j;
+  };
+  if (!d) return <div className="spin">불러오는 중…</div>;
+  if (!d.ok) return <div className="card"><p>총괄 계정만 볼 수 있어요.</p></div>;
+  const inp = { fontSize: 16, padding: 8, border: "1px solid var(--line)", borderRadius: 8, width: "100%" } as const;
+  return (<>
+    <h1>운영 설정</h1>
+    {msg ? <div className="banner">{msg}</div> : null}
+    <div className="card">
+      {Object.keys(LABEL).filter((k) => d.settings[k]).map((k) => (
+        <div key={k} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px", gap: 6, alignItems: "center", margin: "6px 0" }}>
+          <span>{LABEL[k]}<br /><span className="muted">{d.settings[k].updated_by ? `${d.settings[k].updated_by} · ${new Date(d.settings[k].updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "초기값"}</span></span>
+          <input style={inp} value={vals[k] ?? ""} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} />
+          <button className="btn secondary" style={{ margin: 0, padding: 8, fontSize: 14 }} disabled={vals[k] === d.settings[k].value} onClick={() => post({ action: "setting", key: k, value: vals[k] }, `${LABEL[k]} 저장됨`)}>저장</button>
+        </div>))}
+      <p className="muted">쿨다운·입장 상한은 즉시 반영돼요. 입장 상한은 세션 수 기준(실인원 ≈ 세션 × 2~3).</p>
+    </div>
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>수령소 코드 비밀키</h2>
+      <p className="muted">마지막 재발급 {new Date(d.desk_secret_updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}. 재발급하면 지금 떠 있는 코드가 즉시 무효가 되니 수령소가 한가할 때만.</p>
+      <button className="btn secondary" onClick={() => confirm("현재 수령소 코드가 즉시 무효가 됩니다. 재발급할까요?") && post({ action: "rotate_secret" }, "비밀키 재발급됨 — 수령소 화면이 3초 안에 새 코드로 바뀝니다")}>비밀키 재발급</button>
+    </div>
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>관리자 계정·PIN</h2>
+      <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse" }}>
+        <tbody>{d.operators.map((o) => (
+          <tr key={o.id} style={{ borderTop: "1px solid var(--line)", opacity: o.active ? 1 : 0.5 }}>
+            <td style={{ padding: "6px 0" }}><b>{o.id}</b> · {o.name}</td><td>{o.role === "admin" ? "총괄" : "진행요원"}</td><td>{o.active ? "활성" : "비활성"}</td>
+            <td><button className="btn secondary" style={{ margin: 0, padding: "4px 8px", fontSize: 12, width: "auto" }} onClick={() => setOp({ id: o.id, name: o.name, pin: "", role: o.role, active: o.active })}>수정</button></td>
+          </tr>))}</tbody>
+      </table>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 10 }}>
+        <input style={inp} placeholder="아이디 (영문·숫자)" value={op.id} onChange={(e) => setOp({ ...op, id: e.target.value })} />
+        <input style={inp} placeholder="이름" value={op.name} onChange={(e) => setOp({ ...op, name: e.target.value })} />
+        <input style={inp} placeholder="PIN 4~8자리 (비우면 유지)" inputMode="numeric" value={op.pin} onChange={(e) => setOp({ ...op, pin: e.target.value.replace(/\D/g, "") })} />
+        <select style={inp} value={op.role} onChange={(e) => setOp({ ...op, role: e.target.value })}><option value="staff">진행요원</option><option value="admin">총괄</option></select>
+      </div>
+      <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={op.active} onChange={(e) => setOp({ ...op, active: e.target.checked })} /> 활성</label>
+      <button className="btn" onClick={() => post({ action: "operator", ...op, pin: op.pin || null }, "계정 저장됨").then((j) => j.ok && setOp({ id: "", name: "", pin: "", role: "staff", active: true }))} disabled={!op.id || !op.name}>계정 저장</button>
+      <p className="muted">진행요원 PIN = 참가자 폰 [사용] 확인창에 입력하는 번호. 총괄 PIN = 관리자 로그인. <b>운영 전 초기 PIN(000000/1111/2222)을 반드시 바꾸세요.</b></p>
+    </div>
+  </>);
+}
