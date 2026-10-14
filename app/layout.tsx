@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import InAppBanner from "@/components/InAppBanner";
+import TestBanner from "@/components/TestBanner";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.PUBLIC_BASE_URL || "https://goldfinder.mytourinfo.kr"),
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body>
         <main className="wrap">
+          <TestBanner />
           <InAppBanner />
           {children}
           <footer style={{ textAlign: "center", opacity: 0.55, fontSize: 12, padding: "20px 0 10px" }}>주최 밀양시</footer>

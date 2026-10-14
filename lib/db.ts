@@ -25,6 +25,8 @@ const FN = new Set([
   "admin_content_get", "admin_story_set", "admin_quiz_set", "admin_ticket_get",
   "admin_tags", "admin_tag_encoded", "admin_settings_get", "admin_desk_secret_rotate", "admin_operators_list", "admin_operator_set",
   "admin_wishes", "admin_wish_set", "api_rate_limit",
+  // 테스트 모드 (2026-10-14)
+  "tester_status", "test_device_register", "test_device_set", "test_device_revoke", "test_admin_get", "tag_check", "admin_test_purge",
 ]);
 
 export type RpcResult = { ok: boolean; status?: string; code?: string; [k: string]: unknown };

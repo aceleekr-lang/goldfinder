@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { PRIZE_NAME } from "@/lib/copy";
 
-type Draw = { ticket_id: string; join_code: string; round: number; result: string; prize_name: string | null; status: string; drawn_at: string; redeemed_at: string | null; redeemed_by_name: string | null };
+type Draw = { ticket_id: string; join_code: string; round: number; result: string; prize_name: string | null; status: string; drawn_at: string; redeemed_at: string | null; redeemed_by_name: string | null; is_test?: boolean };
 type D = { ok: boolean; code?: string; seconds_left?: number; window_sec?: number; draws?: Draw[]; pending_count?: number };
 const hhmm = (s?: string | null) => (s ? new Date(s).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Seoul" }) : "");
 
@@ -36,7 +36,7 @@ export default function Desk() {
         <tbody>{(d.draws ?? []).map((t) => (
           <tr key={t.ticket_id} style={{ borderTop: "1px solid var(--line)", background: t.status === "drawn" ? "#fff8e1" : undefined }}>
             <td style={{ padding: "8px 0" }}>{hhmm(t.drawn_at)}</td>
-            <td><b>{t.join_code}</b>{t.round > 1 ? ` (${t.round}R)` : ""}</td>
+            <td><b>{t.join_code}</b>{t.round > 1 ? ` (${t.round}R)` : ""}{t.is_test ? <span style={{ background: "#c62828", color: "#fff", borderRadius: 6, padding: "0 6px", marginLeft: 6, fontSize: 12, fontWeight: 800 }}>TEST</span> : null}</td>
             <td style={{ fontWeight: t.result === "g1" ? 800 : 400 }}>{t.prize_name ?? PRIZE_NAME[t.result]}</td>
             <td>{t.status === "redeemed" ? `지급됨 ${hhmm(t.redeemed_at)} · ${t.redeemed_by_name ?? ""}` : "지급 대기"}</td>
             <td>{t.status === "drawn" ? <button className="btn secondary" style={{ padding: "4px 8px", fontSize: 12, margin: 0, width: "auto" }} onClick={() => manual(t)}>수동 지급</button> : null}</td>

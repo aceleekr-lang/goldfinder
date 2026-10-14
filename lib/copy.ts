@@ -45,5 +45,7 @@ export const ERR: Record<string, string> = {
   RSV_USED: "이미 사용한 예약번호입니다. 참여는 1인 1일 1회입니다.",
   RSV_LOCKED: "잠시 후 다시 입력해 주세요. (5분)",
   SERVER_ERROR: "잠깐 연결이 매끄럽지 않았어요. 다시 시도해 주세요.",
+  TESTER_REQUIRED: "테스트폰 등록이 필요해요 (만료됐을 수 있어요). 관리자 [테스트]에서 다시 등록하세요.",
+  FORCE_NOT_ALLOWED: "실제 뽑기권은 결과를 지정할 수 없어요.",
 };
 export const errText = (code?: string) => (code && ERR[code]) || "다시 시도해 주세요.";

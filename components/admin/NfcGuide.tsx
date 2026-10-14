@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 
 // NFC 태그 인코딩 안내 화면 (초보자용) — 안드로이드 'NFC Tools' 앱 기준
 // 1) 3단계 안내  2) 태그 카드(URL 복사·QR·완료 체크)  3) 대조표 인쇄
-type Tag = { id: string; role: "star" | "start" | "exit"; color: string | null; label: string; zone: string | null; active: boolean; is_spare: boolean; encoded_at: string | null; url: string };
+type Tag = { id: string; role: "star" | "start" | "exit"; color: string | null; label: string; zone: string | null; active: boolean; is_spare: boolean; encoded_at: string | null; checked_at?: string | null; checked_by?: string | null; url: string };
 type Resp = { ok: boolean; tags: Tag[]; base?: string };
 
 const COLOR_KO: Record<string, string> = { yellow: "영남루별", red: "아리랑별", white: "달빛별", teal: "밀양별", orange: "소원별" };
@@ -30,6 +30,11 @@ export default function NfcGuide() {
   const full = (t: Tag) => `${base}/t/${t.id}`;
   const list = d.tags.filter((t) => filter === "all" ? true : filter === "gate" ? t.role !== "star" : filter === "spare" ? (t.role === "star" && t.is_spare) : (t.role === "star" && !t.is_spare));
   const done = d.tags.filter((t) => t.encoded_at).length;
+  const kstDay = (iso: string) => new Date(iso).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+  const today = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+  const checkedToday = (t: Tag) => !!t.checked_at && kstDay(t.checked_at) === today;
+  const inUse = d.tags.filter((t) => t.active && !t.is_spare);
+  const chk = inUse.filter(checkedToday).length;
   const copy = async (t: Tag) => { try { await navigator.clipboard.writeText(full(t)); setCopied(t.id); setTimeout(() => setCopied(null), 1500); } catch { prompt("아래 주소를 길게 눌러 복사하세요", full(t)); } };
   const mark = async (t: Tag, v: boolean) => { await fetch("/api/admin/tags", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tagId: t.id, encoded: v }) }); load(); };
   const title = (t: Tag) => t.role === "start" ? `시작 표식 (${t.label})` : t.role === "exit" ? `출구 표식 (${t.label})` : t.label;
@@ -75,7 +80,7 @@ export default function NfcGuide() {
       </div>
 
       <div className="card">
-        <p><b>진행: {done} / {d.tags.length}개 완료</b></p>
+        <p><b>진행: {done} / {d.tags.length}개 완료</b> · 오늘 점검(테스트폰 점검 모드) {chk} / {inUse.length}</p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {([["install", "설치용 별 40"], ["spare", "예비 별 20"], ["gate", "시작·출구"], ["all", "전체"]] as const).map(([k, v]) => (
             <button key={k} className={"btn " + (filter === k ? "" : "secondary")} style={{ padding: "6px 10px", margin: 0, fontSize: 14 }} onClick={() => setFilter(k)}>{v}</button>))}
@@ -90,6 +95,7 @@ export default function NfcGuide() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 20, fontWeight: 800 }}>{title(t)}</div>
               <div className="muted">{sub(t)}{t.active ? "" : " · (비활성)"}</div>
+              {t.checked_at ? <div style={{ fontSize: 13, color: checkedToday(t) ? "#2e7d32" : "var(--muted)" }}>{checkedToday(t) ? "오늘 점검 ✓ " : "마지막 점검 "}{new Date(t.checked_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}{t.checked_by ? ` · ${t.checked_by}` : ""}</div> : null}
               <div style={{ fontFamily: "monospace", fontSize: 12, wordBreak: "break-all", marginTop: 4 }}>{full(t)}</div>
             </div>
           </div>

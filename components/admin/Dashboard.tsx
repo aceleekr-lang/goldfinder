@@ -4,7 +4,7 @@ import Link from "next/link";
 
 type D = { ok: boolean; kst_now: string; op_day: { op_date: string; open_at: string; close_at: string; last_entry: string } | null; slot?: number;
   entry_cap: number; cooldown_sec: number; stale_min: number;
-  tags: { total: number; active: number; cooling: number; inactive: string[]; spare_on: string[]; gates_off: string[] };
+  tags: { total: number; active: number; cooling: number; inactive: string[]; spare_on: string[]; gates_off: string[]; checked_today?: number }; test_today?: number;
   active_raw?: number; active_fresh?: number; stale?: number; stale_list?: { session_id: string; join_code: string; minutes: number; stars: number }[];
   started_today?: number; completed?: number; expired?: number; tickets?: Record<string, number>; draws_today?: number; results_today?: Record<string, number>;
   quota_now?: Record<string, { allocated: number; remaining: number }>; quota_day?: Record<string, { allocated: number; remaining: number }>; left_total?: Record<string, number>; quota_missing?: boolean;
@@ -65,6 +65,7 @@ export default function Dashboard() {
       </div>
       {d.tags.inactive.length ? <p className="muted">비활성: {d.tags.inactive.join(", ")}</p> : null}
       {d.tags.gates_off.length ? <p style={{ color: "#c62828" }}>시작·출구 표식 비활성: {d.tags.gates_off.join(", ")}</p> : null}
+      <p className="muted">오늘 태그 점검 {d.tags.checked_today ?? 0}개{d.test_today ? ` · 오늘 테스트 세션 ${d.test_today}건(통계 제외)` : ""} · <Link href="/admin/test">테스트 모드</Link></p>
     </div>
     <div className="card">
       <h2 style={{ marginTop: 0 }}>현황판 금 당첨 연출</h2>

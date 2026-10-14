@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-type B = { ok: boolean; op_day: boolean; kst_now?: string; close_at?: string; quota?: Record<string, number>; prizes?: Record<string, string>; gold_today?: number; gold_last_id?: number };
+type B = { ok: boolean; op_day: boolean; kst_now?: string; close_at?: string; quota?: Record<string, number>; prizes?: Record<string, string>; gold_today?: number; gold_last_id?: number; test?: boolean };
 const ORD = ["", "첫 번째", "두 번째", "세 번째", "네 번째", "다섯 번째", "여섯 번째", "일곱 번째"];
 const hm = (t?: string) => (t ?? "").slice(0, 5);
 
@@ -16,7 +16,9 @@ export default function Board() {
   const audio = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const goldNow = useRef(0);
-  const load = () => fetch("/api/board/data").then((r) => r.json()).then((j: B) => {
+  // /board?test=1 → 테스트 뽑기의 금 당첨으로 연출 (리허설용, 이 화면에서만). 잔여 수량은 실제 값
+  const isTest = () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("test") === "1";
+  const load = () => fetch(isTest() ? "/api/board/data?test=1" : "/api/board/data").then((r) => r.json()).then((j: B) => {
     setB(j); goldNow.current = j.gold_today ?? 0;
     const id = j.gold_last_id ?? 0;
     if (lastGold.current === null) { lastGold.current = id; return; }   // 첫 로드는 기준점만
@@ -59,7 +61,8 @@ export default function Board() {
       style={{ position: "fixed", right: "2vw", bottom: "2vh", zIndex: 60, fontSize: "2.4vh", padding: "1.2vh 2vw", borderRadius: "1.5vh", border: "0.3vh solid #F2C14E", background: "rgba(0,0,0,.6)", color: "#F2C14E", cursor: "pointer" }}>
       ▶ 현황판 시작 (개장 전 한 번 클릭 — 전체화면 + 축하 음악 켜기)</button>) : (
     <button onClick={goFull} title="전체화면 켜기/끄기" style={{ position: "fixed", right: "1vw", bottom: "1vh", zIndex: 60, fontSize: "2.2vh", padding: "0.6vh 1.2vh", borderRadius: "1vh", border: "0.2vh solid rgba(245,241,230,.35)", background: "rgba(0,0,0,.35)", color: "rgba(245,241,230,.7)", cursor: "pointer" }}>⛶</button>);
-  const audioEl = <audio ref={audio} src="/gold/gold_fanfare.mp3" preload="auto" />;
+  const audioEl = (<><audio ref={audio} src="/gold/gold_fanfare.mp3" preload="auto" />
+    {b?.test ? <div style={{ position: "fixed", left: "1vw", bottom: "1vh", zIndex: 70, background: "#c62828", color: "#fff", fontSize: "2vh", padding: "0.4vh 1vw", borderRadius: "0.8vh" }}>TEST 연출 모드 — 테스트폰 금 당첨에 반응</div> : null}</>);
   if (!b) return <div style={S.wrap}>{audioEl}{armBtn}<p style={S.title}>영남루에 흩어진 별을 찾아라</p></div>;
   if (!b.op_day) return <div style={S.wrap}>{audioEl}{armBtn}{overlay}<p style={S.title}>영남루에 흩어진 별을 찾아라</p><p style={S.sub}>이벤트는 10. 18.~11. 8. 주말(토·일) 저녁에 운영됩니다 · 사전예약제 · 10월 20:30~23:00 / 11월 19:00~23:00 (최종 입장 22:00)</p></div>;
   const q = b.quota ?? {}, p = b.prizes ?? {};

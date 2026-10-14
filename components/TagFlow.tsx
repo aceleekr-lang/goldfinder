@@ -5,6 +5,7 @@ import Link from "next/link";
 import StarSlots from "./StarSlots";
 import StoryCard from "./StoryCard";
 import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE3 } from "@/lib/copy";
+import { readMark } from "./TestBanner";
 
 type Resp = { ok: boolean; status?: string; code?: string; [k: string]: any };
 type Props = { tagId: string; role: "start" | "star" | "exit"; color: string | null; colorName?: string };
@@ -29,6 +30,8 @@ function StartFlow({ tagId }: { tagId: string }) {
   const [code, setCode] = useState("");
   const [r, setR] = useState<Resp | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [mark, setMark] = useState<string | null>(null);
+  useEffect(() => { setMark(readMark()); }, []);
   const start = async () => {
     setBusy(true); setR(null);
     const res = await post("/api/session/start", { tagId, rsvCode: code });
@@ -68,6 +71,7 @@ function StartFlow({ tagId }: { tagId: string }) {
         <input id="rsv" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="one-time-code" placeholder="예) 123456"
           value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
           style={{ width: "100%", fontSize: 28, letterSpacing: 6, textAlign: "center", padding: 10, borderRadius: 10, border: "1px solid var(--line, #ccc)" }} />
+        {mark ? <p style={{ color: "#c62828", fontWeight: 700, margin: "6px 0" }}>{mark.includes("r") ? "테스트폰 · 실제 예약번호 모드: 예약앱에서 만든 진짜 번호를 넣으세요 (번호 1개가 사용 처리돼요)." : "테스트폰: 아무 6자리 숫자(예: 000000)로 시작할 수 있어요."}</p> : null}
         <p className="muted" style={{ marginTop: 6 }}>번호를 모르시면 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 이름·휴대폰으로 확인하세요. (참여번호와는 다른 번호예요)</p>
       </div>
       {errCode ? <div className="card"><p>{errMsg}</p>
