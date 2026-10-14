@@ -25,7 +25,7 @@ export default function Desk() {
   return (<>
     <div className="card" style={{ textAlign: "center", padding: 24 }}>
       <p className="muted" style={{ margin: 0 }}>뽑기권 사용 코드 · <b>{left}초</b> 후 새 코드 (이전 코드도 3분간 유효)</p>
-      <div className="bigcode" style={{ fontSize: "clamp(44px, 15vw, 120px)", letterSpacing: "0.1em", lineHeight: 1.2, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", paddingLeft: "0.1em" }}>{d.code}</div>
+      <div className="bigcode" style={{ fontSize: "min(72px, 12.5vw)", letterSpacing: "0.06em", lineHeight: 1.2, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", paddingLeft: "0.1em" }}>{d.code}</div>
       <p className="muted">참가자: 폰 뽑기권 화면에 이 코드 입력 → 뽑기 → 결과 화면을 직원에게 보여주고 [사용] → 직원 PIN 입력 → 경품 수령</p>
     </div>
     {msg ? <div className="banner">{msg}</div> : null}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PRIZE_NAME, VOUCHER_NOTE, errText } from "@/lib/copy";
+import DrawShow from "./DrawShow";
 
 type T = { ok: boolean; code?: string; is_test?: boolean; ticket_id?: string; join_code?: string; round?: number; status?: string; result?: string | null;
   prize_name?: string | null; drawn_at?: string | null; redeemed_at?: string | null; redeemed_by_name?: string | null };
@@ -17,6 +18,8 @@ export default function Ticket() {
   const [opName, setOpName] = useState<string | null>(null);
   const [force, setForce] = useState<string>("");   // 테스트 뽑기권 전용: "" = 모의(실제 엔진 결과, 차감 없음) / g1·g2·g3·card = 결과 지정
   const [mode, setMode] = useState<string | null>(null);
+  const [drawn, setDrawn] = useState<{ result: string; prize_name: string | null } | null>(null);   // 서버 확정 결과 (연출이 끝나면 화면에 반영)
+  const [fresh, setFresh] = useState(false);   // 방금 연 결과 → 결과 카드 등장 효과
 
   const load = async () => {
     try { const j: T = await (await fetch("/api/ticket")).json(); setT(j); if (j.ok && j.status === "redeemed") setPhase("done"); else if (j.ok && j.status === "drawn") setPhase("result"); }
@@ -26,10 +29,13 @@ export default function Ticket() {
 
   const draw = async () => {
     if (!t?.ticket_id) return;
-    setErr(null); setPhase("drawing");
-    const r = await fetch("/api/draw/execute", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ticketId: t.ticket_id, code, force: t.is_test && force ? force : undefined }) });
-    const j = await r.json();
-    if (j.ok) { setMode(j.test_mode ?? null); setTimeout(() => { setT({ ...t, status: "drawn", result: j.result, prize_name: j.prize_name }); setPhase("result"); }, 2000); }   // 결과는 서버 확정 후 2초 연출
+    setErr(null); setDrawn(null); setPhase("drawing");
+    let j: { ok: boolean; code?: string; result?: string; prize_name?: string | null; test_mode?: string };
+    try {
+      const r = await fetch("/api/draw/execute", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ticketId: t.ticket_id, code, force: t.is_test && force ? force : undefined }) });
+      j = await r.json();
+    } catch { j = { ok: false, code: "SERVER_ERROR" }; }
+    if (j.ok && j.result) { setMode(j.test_mode ?? null); setDrawn({ result: j.result, prize_name: j.prize_name ?? null }); }   // 결과는 서버 확정 — 연출(DrawShow)이 끝나면 결과 화면으로
     else { setErr(errText(j.code)); setPhase("idle"); if (j.code === "ALREADY_USED") load(); }
   };
   const redeem = async () => {
@@ -53,7 +59,9 @@ export default function Ticket() {
     </div>) : null;
   const head = <p className="muted" style={{ textAlign: "center" }}>참여번호 <b>{t.join_code}</b>{t.round && t.round > 1 ? ` · ${t.round}라운드` : ""} · 뽑기권 {t.ticket_id}</p>;
 
-  if (phase === "drawing") return <div className="spin"><div className="result">별이 돌아가는 중…</div></div>;
+  if (phase === "drawing") return <DrawShow result={drawn?.result ?? null} onDone={() => {
+    if (drawn) { setT({ ...t, status: "drawn", result: drawn.result, prize_name: drawn.prize_name }); setFresh(true); setPhase("result"); }
+  }} />;
 
   if (phase === "done") {
     return (<>
@@ -71,9 +79,13 @@ export default function Ticket() {
 
   if (phase === "result" || phase === "redeem") {
     return (<>
+      <style>{`@keyframes gfPop { 0% { transform: scale(.6); opacity: 0 } 70% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
+        @keyframes gfGlow { 0%,100% { box-shadow: 0 0 0 rgba(242,193,78,0) } 50% { box-shadow: 0 0 34px 8px rgba(242,193,78,.75) } }`}</style>
       <h1>뽑기 결과</h1>
       {testMark}
-      <div className="card" style={{ textAlign: "center" }}>
+      <div className="card" style={{ textAlign: "center", animation: fresh ? `gfPop .6s cubic-bezier(.2,1.4,.4,1)${t.result && t.result !== "card" ? ", gfGlow 1.6s ease-in-out .6s 3" : ""}` : undefined,
+        borderColor: t.result && t.result !== "card" ? "#F2C14E" : undefined, borderWidth: t.result && t.result !== "card" ? 3 : undefined }}>
+        {fresh && t.result && t.result !== "card" ? <p style={{ fontSize: 20, fontWeight: 800, color: "#b8862a", margin: "0 0 4px" }}>{t.result === "g1" ? "★ 축하합니다! 금빛 별이 떴어요 ★" : "★ 축하합니다! ★"}</p> : null}
         <p className="result" style={{ fontSize: 32 }}>{prize}</p>
         {head}
         <p>이 화면을 <b>수령소 직원</b>에게 보여 주세요. 직원이 아래 [사용]을 눌러 경품을 드려요.</p>
