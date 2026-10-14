@@ -14,8 +14,10 @@ export default function Board() {
   const [celebrate, setCelebrate] = useState<number | null>(null);   // 몇 번째 금인지 (null = 평소 화면)
   const lastGold = useRef<number | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const goldNow = useRef(0);
   const load = () => fetch("/api/board/data").then((r) => r.json()).then((j: B) => {
-    setB(j);
+    setB(j); goldNow.current = j.gold_today ?? 0;
     const id = j.gold_last_id ?? 0;
     if (lastGold.current === null) { lastGold.current = id; return; }   // 첫 로드는 기준점만
     if (id > lastGold.current) { lastGold.current = id; fire(j.gold_today ?? 1); }
@@ -23,15 +25,16 @@ export default function Board() {
   const fire = (n: number) => {
     setCelebrate(n);
     try { if (audio.current) { audio.current.currentTime = 0; audio.current.play().catch(() => {}); } } catch {}
-    setTimeout(() => setCelebrate(null), 22000);
+    if (timer.current) clearTimeout(timer.current);          // 연속 호출 시 이전 종료 타이머 취소 (깜빡임 방지)
+    timer.current = setTimeout(() => setCelebrate(null), 22000);
   };
   useEffect(() => { load(); const i = setInterval(load, 5000); return () => clearInterval(i); }, []);
-  // 관리자 [연출 미리보기]: /board?preview=1 또는 키보드 G
+  // 관리자 [연출 미리보기]: /board?preview=1 (한 번만) 또는 키보드 G
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview")) setTimeout(() => fire(1), 800);
-    const k = (e: KeyboardEvent) => { if (e.key === "g" || e.key === "G") fire(Math.max(1, (b?.gold_today ?? 0) + 1)); };
+    if (new URLSearchParams(window.location.search).get("preview")) setTimeout(() => fire(1), 800);
+    const k = (e: KeyboardEvent) => { if (e.key === "g" || e.key === "G") fire(Math.max(1, goldNow.current + 1)); };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
-  }, [b]);
+  }, []);
   useEffect(() => { const t = () => setClock(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" })); t(); const i = setInterval(t, 1000); return () => clearInterval(i); }, []);
   const S = { wrap: { position: "fixed" as const, inset: 0, background: "var(--navy, #141B33)", color: "#F5F1E6", display: "flex", flexDirection: "column" as const, padding: "3vh 4vw", fontFamily: "inherit" },
     title: { fontSize: "5vh", fontWeight: 800, margin: 0 }, sub: { fontSize: "3vh", opacity: 0.8, margin: "1vh 0 3vh" },
