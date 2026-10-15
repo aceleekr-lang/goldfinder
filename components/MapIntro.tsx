@@ -17,7 +17,7 @@ export const RULES = [
 
 export default function MapIntro({ onDone }: { onDone?: () => void }) {
   const [open, setOpen] = useState(false);
-  useEffect(() => { if (!mapAgreed()) setOpen(true); }, []);
+  useEffect(() => { if (!mapAgreed()) setOpen(true); else onDone?.(); }, []);   // eslint-disable-line
   if (!open) return null;
   const agree = () => { try { localStorage.setItem(KEY, today()); } catch {} setOpen(false); onDone?.(); };
   return (

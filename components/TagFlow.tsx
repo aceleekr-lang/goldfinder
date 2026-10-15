@@ -7,6 +7,13 @@ import StoryCard from "./StoryCard";
 import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
 import { readMark } from "./TestBanner";
 import MapIntro from "./MapIntro";
+import GateIntro from "./fx/GateIntro";
+import StarWake, { FlyStar } from "./fx/StarWake";
+import Constellation from "./fx/Constellation";
+import { sfx } from "@/lib/sfx";
+
+// 같은 날 같은 장면은 한 번만 (브라우저 저장소가 막힌 폰은 매번 — 짧게 건너뛸 수 있음)
+function seenOnce(key: string): boolean { try { if (localStorage.getItem(key)) return true; localStorage.setItem(key, "1"); } catch {} return false; }
 
 type Resp = { ok: boolean; status?: string; code?: string; [k: string]: any };
 type Props = { tagId: string; role: "start" | "star" | "exit"; color: string | null; colorName?: string };
@@ -32,17 +39,22 @@ function StartFlow({ tagId }: { tagId: string }) {
   const [r, setR] = useState<Resp | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [mark, setMark] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"form" | "gate" | "map">("form");   // 예약번호 확인 → 문 두드리기 → 지도·역주행 동의 → 별자리 화면
   useEffect(() => { setMark(readMark()); }, []);
   const start = async () => {
     setBusy(true); setR(null);
     const res = await post("/api/session/start", { tagId, rsvCode: code });
     setBusy(false);
-    if (res.ok && res.status === "STARTED") { setName((res.name as string) || ""); setTimeout(() => router.replace("/s"), 1400); return; }
+    if (res.ok && res.status === "STARTED") { setName((res.name as string) || ""); setPhase("gate"); return; }
     if (res.ok && res.status === "RESUMED") { router.replace("/s"); return; }
     setR(res);   // COMPLETED(당일 참여 완료) 또는 오류
   };
   if (name !== null) {
-    return (<><h1>{name ? `${name}님, 시작합니다` : "시작합니다"}</h1><div className="card"><p>별자리 화면으로 이동해요…</p></div></>);
+    return (<>
+      <h1>{name ? `${name}님, 시작합니다` : "시작합니다"}</h1><div className="card"><p>별자리 화면으로 이동해요…</p></div>
+      {phase === "gate" ? <GateIntro name={name} onDone={() => setPhase("map")} /> : null}
+      {phase === "map" ? <MapIntro onDone={() => router.replace("/s")} /> : null}
+    </>);
   }
   if (r?.ok && r.status === "COMPLETED") {
     const t = r.ticket as { id: string; status: string } | null;
@@ -61,7 +73,6 @@ function StartFlow({ tagId }: { tagId: string }) {
   const errMsg = errCode === "BEFORE_OPEN" && r?.open_at ? `오늘 금찾기는 ${String(r.open_at).slice(0, 5)}에 시작합니다. 그동안 별조명 만들기 체험과 간이장터를 즐겨 주세요.` : errText(errCode ?? undefined);
   return (
     <>
-      <MapIntro />
       <h1>별찾기를 시작할까요?</h1>
       <div className="card">
         <p>{RSV_NOTE}</p>
@@ -122,6 +133,8 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
   const [picked, setPicked] = useState<number | null>(null);
   const [wish, setWish] = useState("");
   const [wishDone, setWishDone] = useState<string | null>(null);
+  const [woke, setWoke] = useState(false);
+  const [fly, setFly] = useState(false);
   const once = useRef(false);
   const attempt = async (useRetry = false) => { setR(null); setR(await post(`/api/tag/${tagId}/attempt`, { useRetry })); };
   useEffect(() => { if (!once.current) { once.current = true; attempt(); } }, []);   // eslint-disable-line
@@ -140,15 +153,20 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
 
   const stars = (r.stars ?? {}) as Record<string, string>;
   const remaining = (r.needed as { color: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·");
+  // 새로 출제된 별·소원별은 "잠든 별 깨우기" 연출부터 (다시 찍어 이어지는 문제는 바로)
+  if (!woke && ((r.status === "QUIZ" && !r.resumed) || r.status === "WISH")) return <StarWake color={color} name={colorName} onDone={() => setWoke(true)} />;
 
   if (r.status === "QUIZ") {
     const quiz = r.quiz as { id: number; question: string; choices: string[] };
     const submit = async (i: number) => {
       if (ans || picked !== null) return;
       setPicked(i);
-      setAns(await post("/api/quiz/answer", { attemptId: r.attempt_id, answerIdx: i }));
+      const a = await post("/api/quiz/answer", { attemptId: r.attempt_id, answerIdx: i });
+      setAns(a);
+      if (a.ok && a.correct) { sfx.correct(); setFly(true); setTimeout(() => setFly(false), 1300); } else if (a.ok) sfx.wrong();
     };
     return (<>
+      {fly ? <FlyStar color={color} /> : null}
       <StarHead color={color} title={`${colorName}${r.is_retry ? " — 재도전" : ""}`} />
       <StoryCard story={r.story} />
       <div className="card">
@@ -222,7 +240,14 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
 function ExitFlow({ tagId }: { tagId: string }) {
   const [r, setR] = useState<Resp | null>(null);
   const once = useRef(false);
-  const go = async (confirm: boolean) => { setR(null); setR(await post("/api/session/exit", { tagId, confirm })); };
+  const [showSky, setShowSky] = useState(false);
+  const go = async (confirm: boolean) => {
+    setR(null); const res = await post("/api/session/exit", { tagId, confirm }); setR(res);
+    // 별자리 연출은 뽑기권 처음 받을 때 / 미완성 종료 때 한 번만
+    const t = res.ticket as { id?: string } | undefined;
+    if (res.ok && res.status === "TICKET" && t?.id && !seenOnce(`gf_cons_${t.id}`)) setShowSky(true);
+    else if (res.ok && (res.status === "CARD" || res.status === "THANKS") && !seenOnce(`gf_cons_${res.join_code}`)) setShowSky(true);
+  };
   useEffect(() => { if (!once.current) { once.current = true; go(false); } }, []);   // eslint-disable-line
   if (!r) return <div className="spin">별자리를 확인하는 중…</div>;
   if (!r.ok) {
@@ -235,6 +260,7 @@ function ExitFlow({ tagId }: { tagId: string }) {
   }
   const stars = (r.stars ?? {}) as Record<string, string>;
   const remaining = (r.needed as { color: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·");
+  if (showSky) return <Constellation stars={stars} complete={r.status === "TICKET"} onDone={() => setShowSky(false)} />;
   if (r.status === "TICKET") {
     return (<>
       <h1>별자리 완성!</h1>

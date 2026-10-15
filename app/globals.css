@@ -7,7 +7,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); -webkit-text-size-adjust: 100%; }
 body { line-height: 1.5; }
-main.wrap { max-width: 420px; margin: 0 auto; padding: 16px 16px 40px; min-height: 100dvh; }
+main.wrap { max-width: 420px; margin: 0 auto; padding: 16px 16px 96px; min-height: 100dvh; }   /* 아래 여백: [지도] 버튼이 내용을 가리지 않게 */
 h1 { font-size: 22px; margin: 8px 0 12px; }
 h2 { font-size: 18px; margin: 16px 0 8px; }
 p { margin: 8px 0; }

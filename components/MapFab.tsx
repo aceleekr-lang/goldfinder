@@ -13,7 +13,8 @@ export default function MapFab() {
   const show = () => { setOpen(true); fetch("/api/session").then((r) => r.json()).then((j) => { if (j.ok) setStars(j.stars); }).catch(() => {}); };
   return (<>
     {!open ? <button onClick={show} aria-label="지도 열기"
-      style={{ position: "fixed", right: 14, bottom: 18, zIndex: 60, borderRadius: 30, border: "2px solid #F2C14E", background: "#141B33", color: "#fff", fontSize: 17, fontWeight: 800, padding: "12px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.35)" }}>🗺 지도</button> : null}
+      style={{ position: "fixed", right: 12, bottom: 14, zIndex: 60, width: 58, height: 58, borderRadius: "50%", border: "2px solid #F2C14E", background: "#141B33", color: "#fff",
+        fontSize: 11, fontWeight: 800, lineHeight: 1.1, padding: 0, boxShadow: "0 4px 14px rgba(0,0,0,.35)" }}><span style={{ fontSize: 22, display: "block" }}>🗺</span>지도</button> : null}
     {open ? (
       <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(10,14,30,.9)", overflowY: "auto" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", padding: "12px 10px 24px" }}>
