@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import InAppBanner from "@/components/InAppBanner";
 import TestBanner from "@/components/TestBanner";
+import MapFab from "@/components/MapFab";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.PUBLIC_BASE_URL || "https://goldfinder.mytourinfo.kr"),
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <TestBanner />
           <InAppBanner />
           {children}
+          <MapFab />
           <footer style={{ textAlign: "center", opacity: 0.55, fontSize: 12, padding: "20px 0 10px" }}>주최 밀양시</footer>
         </main>
       </body>

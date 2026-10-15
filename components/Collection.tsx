@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import StarSlots from "./StarSlots";
-import { COLOR_NAME, errText } from "@/lib/copy";
+import { COLOR_NAME, errText, withColor } from "@/lib/copy";
 
 type S = { ok: boolean; code?: string; join_code?: string; stars?: Record<string, string>; star_count?: number;
   retry_used?: boolean; retry_available?: boolean; session_status?: string; is_today?: boolean;
@@ -39,7 +39,7 @@ export default function Collection() {
         ) : cannotComplete ? (
           <p>오늘은 <b>{maxReachable}개까지!</b> 남은 별을 마저 깨우고 출구에서 <b>굿바비 행운부적</b>를 받아가세요.</p>
         ) : (
-          <p>아직 {s.needed?.filter((n) => n.state !== "won").map((n) => n.name).join("·")}이 잠들어 있어요.</p>
+          <p>아직 {s.needed?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·")}이 잠들어 있어요. <b>같은 색 스티커</b>가 붙은 별 표식을 찾아가세요.</p>
         )}
         <p className="muted">재도전권: {s.retry_used ? "사용함" : "1회 남음"}{!s.retry_used && failed > 0 ? " — 틀린 색의 다른 별을 태그하면 쓸 수 있어요" : ""}</p>
       </div>

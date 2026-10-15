@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
+import { COLOR_HEX, COLOR_WORD } from "@/lib/copy";
 
 // NFC 태그 인코딩 안내 화면 (초보자용) — 안드로이드 'NFC Tools' 앱 기준
 // 1) 3단계 안내  2) 태그 카드(URL 복사·QR·완료 체크)  3) 대조표 인쇄
@@ -8,7 +9,7 @@ type Tag = { id: string; role: "star" | "start" | "exit"; color: string | null; 
 type Resp = { ok: boolean; tags: Tag[]; base?: string };
 
 const COLOR_KO: Record<string, string> = { yellow: "영남루별", red: "아리랑별", white: "달빛별", teal: "밀양별", orange: "소원별" };
-const COLOR_HEX: Record<string, string> = { yellow: "#F2C14E", red: "#E05A4E", white: "#E8E4D8", teal: "#3BB7A7", orange: "#F08A3C" };
+
 
 function QR({ text, size }: { text: string; size: number }) {
   const [src, setSrc] = useState<string>("");
@@ -38,7 +39,7 @@ export default function NfcGuide() {
   const copy = async (t: Tag) => { try { await navigator.clipboard.writeText(full(t)); setCopied(t.id); setTimeout(() => setCopied(null), 1500); } catch { prompt("아래 주소를 길게 눌러 복사하세요", full(t)); } };
   const mark = async (t: Tag, v: boolean) => { await fetch("/api/admin/tags", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tagId: t.id, encoded: v }) }); load(); };
   const title = (t: Tag) => t.role === "start" ? `시작 표식 (${t.label})` : t.role === "exit" ? `출구 표식 (${t.label})` : t.label;
-  const sub = (t: Tag) => t.role === "star" ? `${COLOR_KO[t.color ?? ""] ?? t.color} · ${t.zone ?? "구역 미정"}${t.is_spare ? " · 예비" : ""}` : "입구/출구";
+  const sub = (t: Tag) => t.role === "star" ? `${COLOR_KO[t.color ?? ""] ?? t.color} · ${COLOR_WORD[t.color ?? ""] ?? ""} 스티커 · ${t.zone ?? "구역 미정"}${t.is_spare ? " · 예비" : ""}` : "입구/출구";
 
   if (print) {
     // 대조표 인쇄: A4 세로, 4열 — 번호·색·구역·QR·URL. 설치 때 들고 다니는 지도 겸 QR 스티커 원본

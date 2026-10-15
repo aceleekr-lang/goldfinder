@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 type R = { ok: boolean; code?: string; status?: string; today?: number; total?: number;
   tag?: { id: string; role: string; color: string | null; color_name: string | null; label: string; zone: string | null; active: boolean; is_spare: boolean; encoded: boolean } };
-const HEX: Record<string, string> = { yellow: "#F2C14E", red: "#E05A4E", white: "#E8E4D8", teal: "#3BB7A7", orange: "#F08A3C" };
+import { COLOR_HEX as HEX, COLOR_WORD } from "@/lib/copy";
 
 // [태그 점검 모드] 테스트폰 전용 — 태그를 찍으면 이 태그가 무엇인지 보여 주고 점검 시각을 기록 (게임은 진행하지 않음)
 export default function TagCheck({ tagId }: { tagId: string }) {
@@ -17,7 +17,7 @@ export default function TagCheck({ tagId }: { tagId: string }) {
   if (!r) return <div className="spin">태그 확인 중…</div>;
   if (!r.ok || !r.tag) return (<><h1>태그 점검</h1><div className="card"><p>확인 실패 ({r.code}). 테스트폰 등록이 만료됐을 수 있어요.</p></div></>);
   const t = r.tag;
-  const kind = t.role === "start" ? "시작 표식 (입구)" : t.role === "exit" ? "출구 표식" : `${t.color_name ?? ""} 별`;
+  const kind = t.role === "start" ? "시작 표식 (입구)" : t.role === "exit" ? "출구 표식" : `${t.color_name ?? ""} · ${COLOR_WORD[t.color ?? ""] ?? ""} 스티커`;
   return (<>
     <h1>태그 점검 ✓</h1>
     <div className="card" style={{ borderLeft: `10px solid ${t.color ? HEX[t.color] : "#777"}` }}>

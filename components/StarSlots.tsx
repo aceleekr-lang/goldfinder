@@ -1,4 +1,4 @@
-import { COLOR_NAME, COLOR_ORDER } from "@/lib/copy";
+import { COLOR_NAME, COLOR_ORDER, COLOR_WORD } from "@/lib/copy";
 
 const VAR: Record<string, string> = { yellow: "var(--yellow)", red: "var(--red)", white: "var(--white-star)", teal: "var(--teal)", orange: "var(--orange)" };
 
@@ -12,7 +12,7 @@ export default function StarSlots({ stars }: { stars: Record<string, string> }) 
         return (
           <div key={c} className={`star ${cls}`} style={{ ["--c" as string]: VAR[c] }}>
             <div className="dot">{st === "won" ? "★" : st === "failed" ? "✕" : "☆"}</div>
-            {COLOR_NAME[c]}
+            {COLOR_NAME[c]}<br /><span style={{ opacity: 0.7, fontSize: 11 }}>{COLOR_WORD[c]}</span>
           </div>
         );
       })}

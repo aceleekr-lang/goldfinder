@@ -1,6 +1,11 @@
 // 화면 문구 단일 저장소. 당첨 관련 표현은 "당첨 수량 배정"으로만 표기 (금칙어 grep이 빌드를 막는다).
 export const COLOR_NAME: Record<string, string> = { yellow: "영남루별", red: "아리랑별", white: "달빛별", teal: "밀양별", orange: "소원별" };
 export const COLOR_ORDER = ["yellow", "red", "white", "teal", "orange"];
+// 별 색 (2026-10-15 확정: 밀양별 청록 → 파랑. 내부 키 'teal'은 DB 호환을 위해 유지, 보이는 색만 파랑)
+//   별 표식에 같은 색 스티커를 붙여 관람객이 멀리서도 색을 보고 찾아간다 (입장객 증가 대응 — "태그해야 색을 안다" 규칙 폐지)
+export const COLOR_WORD: Record<string, string> = { yellow: "노랑", red: "빨강", white: "흰색", teal: "파랑", orange: "주황" };
+export const COLOR_HEX: Record<string, string> = { yellow: "#F2C14E", red: "#E05A4E", white: "#E8E4D8", teal: "#2F6FE4", orange: "#F08A3C" };
+export const withColor = (c: string) => `${COLOR_NAME[c] ?? c}(${COLOR_WORD[c] ?? ""})`;
 export const PRIZE_NAME: Record<string, string> = { g1: "1등 순금 1g 골드바", g2: "2등 지역업체 상품권 4매", g3: "3등 지역업체 상품권 1매", card: "굿바비 행운부적" };
 // 2·3등 상품권 안내 / 완료 화면 부대 프로그램 안내 (12차 확정)
 export const VOUCHER_NOTE = "상품권은 권면에 적힌 업소에서만 사용할 수 있어요 · 거스름돈 미지급 · 유효기간 2026. 12. 31.";

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 //   ② picked: 별 하나가 골라져 가운데 "별 캡슐"로 — "터치해서 열어 보세요"
 //   ③ reveal: 터치 → 빛 터짐 + 별가루 (당첨은 금빛·화려, 참가상은 은은하게) → 결과 화면
 // 돌림판처럼 칸에 등수를 그리지 않는다 (실제 배정은 순서대로 개방되는 엔진이 정하므로 확률처럼 보이는 그림을 피함)
-const COLORS = ["#F2C14E", "#E05A4E", "#E8E4D8", "#3BB7A7", "#F08A3C"];
+const COLORS = ["#F2C14E", "#E05A4E", "#E8E4D8", "#2F6FE4", "#F08A3C"];   // 5색 (밀양별 파랑)
 const STAR = "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z";
 
 export default function DrawShow({ result, onDone }: { result: string | null; onDone: () => void }) {

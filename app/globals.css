@@ -1,7 +1,7 @@
 /* Phase 2 무채색 골격. 색 토큰만 미리 선언 — Phase 7에서 컨셉컴파니 값으로 교체 */
 :root {
   --bg: #f6f6f4; --fg: #1a1a1a; --muted: #6b6b6b; --line: #d9d9d4; --card: #ffffff; --accent: #222;
-  --yellow: #c9a227; --red: #c4503f; --white-star: #9a9a94; --teal: #2f9c92; --orange: #d47a2f;
+  --yellow: #c9a227; --red: #c4503f; --white-star: #9a9a94; --teal: #2a5bd7; /* 밀양별 = 파랑 (2026-10-15, 키 이름만 teal 유지) */ --orange: #d47a2f;
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -36,3 +36,6 @@ textarea { width: 100%; font-size: 16px; padding: 12px; border: 2px solid var(--
 .qr { display: block; width: 220px; height: 220px; margin: 12px auto; image-rendering: pixelated; }
 .result { font-size: 26px; font-weight: 800; text-align: center; margin: 16px 0; }
 .spin { text-align: center; padding: 40px 0; color: var(--muted); }
+/* 별 색 부각 (2026-10-15): 깨운 별은 그 색으로 빛나게, 아직 못 깨운 별도 색 테두리를 굵게 */
+.star.won .dot { box-shadow: 0 0 14px 2px var(--c); transform: scale(1.08); }
+.star.pending .dot { border-width: 4px; }

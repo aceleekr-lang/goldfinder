@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StarSlots from "./StarSlots";
 import StoryCard from "./StoryCard";
-import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE3 } from "@/lib/copy";
+import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
 import { readMark } from "./TestBanner";
+import MapIntro from "./MapIntro";
 
 type Resp = { ok: boolean; status?: string; code?: string; [k: string]: any };
 type Props = { tagId: string; role: "start" | "star" | "exit"; color: string | null; colorName?: string };
@@ -20,7 +21,7 @@ async function post(url: string, body: unknown): Promise<Resp> {
 export default function TagFlow(p: Props) {
   if (p.role === "start") return <StartFlow tagId={p.tagId} />;
   if (p.role === "exit") return <ExitFlow tagId={p.tagId} />;
-  return <StarFlow tagId={p.tagId} colorName={p.colorName ?? ""} />;
+  return <StarFlow tagId={p.tagId} color={p.color ?? ""} colorName={p.colorName ?? ""} />;
 }
 
 // ---------- P1 시작 표식 — 사전예약자만 (본인 예약번호 6자리). 참여는 1인 1일 1회 ----------
@@ -60,6 +61,7 @@ function StartFlow({ tagId }: { tagId: string }) {
   const errMsg = errCode === "BEFORE_OPEN" && r?.open_at ? `오늘 금찾기는 ${String(r.open_at).slice(0, 5)}에 시작합니다. 그동안 별조명 만들기 체험과 간이장터를 즐겨 주세요.` : errText(errCode ?? undefined);
   return (
     <>
+      <MapIntro />
       <h1>별찾기를 시작할까요?</h1>
       <div className="card">
         <p>{RSV_NOTE}</p>
@@ -79,14 +81,42 @@ function StartFlow({ tagId }: { tagId: string }) {
       <button className="btn" onClick={start} disabled={busy || code.length !== 6}>{busy ? "확인 중…" : "시작하기"}</button>
       <div className="card">
         <p className="muted">정원 곳곳의 별 표식에 휴대폰을 대고, 이야기를 읽은 뒤 문제를 맞히면 별이 깨어나요. 5가지 색을 모두 깨우고 <b>출구 표식</b>을 태그하면 뽑기권!</p>
-        <p className="muted">별 표식은 겉보기엔 전부 금빛 — <b>태그해야 어떤 색 별인지 알 수 있어요.</b> 참여는 1인 1일 1회, 이미 시작했다면 번호 없이 그대로 이어집니다.</p>
+        <p className="muted">별 표식은 <b>5가지 색 스티커</b>로 구분돼요. 색을 보고 아직 못 깨운 별을 찾아가세요. 참여는 1인 1일 1회, 이미 시작했다면 번호 없이 그대로 이어집니다.</p>
+        <ColorLegend />
       </div>
     </>
   );
 }
 
+// 5색 범례 — 별 표식 스티커 색과 같은 색 (2026-10-15)
+function ColorLegend() {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 8 }}>
+      {COLOR_ORDER.map((c) => (
+        <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14 }}>
+          <span style={{ width: 16, height: 16, borderRadius: "50%", background: COLOR_HEX[c], border: "1px solid #999", display: "inline-block" }} />
+          {COLOR_WORD[c]} = {COLOR_NAME[c]}
+        </span>))}
+    </div>
+  );
+}
+
 // ---------- P3/P4 별 표식 ----------
-function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
+// 별 색 머리띠 — 태그한 별의 색을 화면 전체에 크게 (2026-10-15)
+const ZONE_OF: Record<string, number> = { yellow: 1, red: 2, white: 3, teal: 4, orange: 5 };
+function StarHead({ color, title }: { color: string; title: string }) {
+  const hex = COLOR_HEX[color] ?? "#888"; const dark = color === "white" || color === "yellow";
+  return (
+    <div style={{ background: `linear-gradient(135deg, ${hex}, ${hex}cc)`, color: dark ? "#141B33" : "#fff", borderRadius: 16, padding: "14px 16px", margin: "6px 0 12px",
+      display: "flex", alignItems: "center", gap: 14, boxShadow: `0 6px 22px ${hex}66`, border: color === "white" ? "1px solid #bbb" : undefined }}>
+      <svg viewBox="0 0 24 24" width={58} height={58} style={{ flex: "none", filter: "drop-shadow(0 2px 4px rgba(0,0,0,.3))" }}>
+        <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" fill={dark ? "#141B33" : "#fff"} opacity={0.92} /></svg>
+      <div><div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.2 }}>{title}</div>
+        <div style={{ fontSize: 14, opacity: 0.85 }}>{COLOR_WORD[color] ?? ""} 별{ZONE_OF[color] ? ` · ${ZONE_OF[color]}구역` : ""}</div></div>
+    </div>);
+}
+
+function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; colorName: string }) {
   const [r, setR] = useState<Resp | null>(null);
   const [ans, setAns] = useState<Resp | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
@@ -100,7 +130,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
 
   if (!r.ok) {
     return (<>
-      <h1>{colorName}</h1>
+      <StarHead color={color} title={colorName} />
       <div className="card"><p>{errText(r.code)}</p></div>
       {r.code === "NO_SESSION" ? <Link className="btn" href="/recover">참여번호로 이어서 하기</Link> : null}
       {r.code === "SESSION_COMPLETED" ? <Link className="btn" href="/ticket">뽑기권 보기</Link> : null}
@@ -109,7 +139,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
   }
 
   const stars = (r.stars ?? {}) as Record<string, string>;
-  const remaining = (r.needed as { name: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => n.name).join("·");
+  const remaining = (r.needed as { color: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·");
 
   if (r.status === "QUIZ") {
     const quiz = r.quiz as { id: number; question: string; choices: string[] };
@@ -119,7 +149,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
       setAns(await post("/api/quiz/answer", { attemptId: r.attempt_id, answerIdx: i }));
     };
     return (<>
-      <h1>{colorName}{r.is_retry ? " — 재도전" : ""}</h1>
+      <StarHead color={color} title={`${colorName}${r.is_retry ? " — 재도전" : ""}`} />
       <StoryCard story={r.story} />
       <div className="card">
         <p><b>Q.</b> {quiz.question}</p>
@@ -131,7 +161,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
       {ans ? (
         ans.ok ? (
           <div className="card">
-            <p className="result">{ans.correct ? `${colorName}이 깨어났어요 ★` : "아쉬워요"}</p>
+            <p className="result" style={ans.correct ? { color: color === "white" ? "#6b6b6b" : COLOR_HEX[color], fontWeight: 900 } : undefined}>{ans.correct ? `${colorName}이 깨어났어요 ★` : "아쉬워요"}</p>
             {ans.correct ? null : (
               <p>{ans.retry_available ? "재도전권 1회가 남아 있어요. 같은 색의 다른 별을 태그하면 새 문제로 다시 도전할 수 있어요." : "이 색은 오늘 깨울 수 없지만, 다른 색 별을 계속 찾을 수 있어요."}</p>
             )}
@@ -147,7 +177,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
   if (r.status === "WISH") {
     const send = async () => { const w = await post("/api/wish", { body: wish }); setWishDone(w.ok ? "소원을 별에 실었어요 ✦" : errText(w.code)); };
     return (<>
-      <h1>{colorName}이 깨어났어요 ★</h1>
+      <StarHead color={color} title={`${colorName}이 깨어났어요 ★`} />
       <StoryCard story={r.story} />
       {wishDone ? <div className="card"><p>{wishDone}</p></div> : (
         <div className="card">
@@ -164,7 +194,7 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
 
   if (r.status === "RETRY_OFFER") {
     return (<>
-      <h1>{colorName}에 다시 도전할까요?</h1>
+      <StarHead color={color} title={`${colorName}에 다시 도전할까요?`} />
       <div className="card">
         <p>이 색은 아까 틀렸어요. <b>재도전권(1회)</b>을 쓰면 새 문제로 다시 도전할 수 있어요.</p>
         <p className="muted">재도전권은 오늘 한 번만 쓸 수 있어요. 다른 색에 아껴 둘 수도 있습니다.</p>
@@ -177,11 +207,11 @@ function StarFlow({ tagId, colorName }: { tagId: string; colorName: string }) {
   const msg: Record<string, string> = {
     DUP_COLOR: `${colorName}은 이미 깨웠어요. 아직 잠든 별: ${remaining || "없음"}`,
     ALREADY_FAILED: `이 색은 오늘 깨울 수 없어요. 아직 잠든 다른 별: ${remaining || "없음"}`,
-    COOLDOWN: `이 별은 방금 다른 분이 깨웠어요. 같은 ${colorName}이 정원에 ${r.others_available ?? 0}개 더 잠들어 있습니다.${r.hint_zone ? ` ${r.hint_zone} 쪽으로 가보세요.` : ""}`,
+    COOLDOWN: `이 별은 방금 다른 분이 깨웠어요. 같은 구역에 ${colorName}이 ${r.others_available ?? 0}개 더 있어요. 바로 옆 별을 찾아보세요.`,
     TOO_FAST: `너무 빨라요! ${r.wait_sec ?? 30}초 뒤에 다시 태그해 주세요.`,
   };
   return (<>
-    <h1>{colorName}</h1>
+    <StarHead color={color} title={colorName} />
     <div className="card"><p>{msg[r.status ?? ""] ?? "다시 시도해 주세요."}</p></div>
     <StarSlots stars={stars} />
     <Link className="btn secondary" href="/s">내 별자리</Link>
@@ -204,7 +234,7 @@ function ExitFlow({ tagId }: { tagId: string }) {
     </>);
   }
   const stars = (r.stars ?? {}) as Record<string, string>;
-  const remaining = (r.needed as { name: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => n.name).join("·");
+  const remaining = (r.needed as { color: string; state: string }[] | undefined)?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·");
   if (r.status === "TICKET") {
     return (<>
       <h1>별자리 완성!</h1>
