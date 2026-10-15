@@ -10,9 +10,7 @@ import { COLOR_HEX, COLOR_NAME, COLOR_ORDER } from "@/lib/copy";
 
 // 「별이 떨어진 밤」 — 첫 링크(홈) 진입 연출 (2026-10-15)
 //   밤하늘 → 다섯 빛깔 별똥별이 영남루 위로 흩어져 내려앉음 → 제목 → 화면 누르면 종소리와 함께 홈으로
-//   하루 한 번만(그 폰 기준). 건너뛰기 가능. 소리는 브라우저 정책상 첫 터치 이후에만 남
-const KEY = "gf_home_intro";
-const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+//   링크(홈)를 열 때마다 나옴(2026-10-15 사용자 결정). 건너뛰기 가능. 소리는 브라우저 정책상 첫 터치 이후에만 남
 // 별이 내려앉는 자리 (화면 % 기준) — 정원 위에 흩어진 느낌
 const LAND: [number, number][] = [[18, 58], [36, 66], [52, 56], [68, 67], [84, 59]];
 
@@ -23,9 +21,6 @@ export default function HomeIntro() {
   const done = useRef(false);
 
   useEffect(() => {
-    let seen = false;
-    try { seen = localStorage.getItem(KEY) === today(); } catch {}
-    if (seen) return;
     setShow(true);
     const a = setTimeout(() => setTitle(true), 2600);
     return () => clearTimeout(a);
@@ -33,7 +28,6 @@ export default function HomeIntro() {
 
   const finish = (withSound: boolean) => {
     if (done.current) return; done.current = true;
-    try { localStorage.setItem(KEY, today()); } catch {}
     if (withSound) sfx.constellation();
     setLeaving(true); setTimeout(() => setShow(false), 700);
   };
