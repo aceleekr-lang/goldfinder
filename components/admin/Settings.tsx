@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 type Op = { id: string; name: string; role: string; active: boolean };
 type D = { ok: boolean; code?: string; settings: Record<string, { value: string; updated_at: string; updated_by: string | null }>; desk_secret_updated_at: string; operators: Op[] };
 const LABEL: Record<string, string> = { cooldown_sec: "별 태그 쿨다운(초)", entry_cap: "입장 상한(세션 수)", min_session_min: "최소 세션 시간(분) — 미만이면 뽑기권 보류", min_tag_interval_sec: "별 태그 최소 간격(초)",
-  stale_min: "이탈 추정(분)", expire_min: "자동 만료(분)", desk_code_sec: "수령소 코드 갱신 주기(초)" };
+  stale_min: "이탈 추정(분)", expire_min: "자동 만료(분)", desk_code_sec: "수령소 코드 갱신 주기(초)",
+  start_rate: "배출 사전값 — 예약자 중 시작하는 비율(%) · 실적이 쌓이면 자동 대체", finish_rate: "배출 사전값 — 시작한 사람 중 뽑기까지 오는 비율(%) · 실적으로 자동 보정" };
 const ERR: Record<string, string> = { PIN_FORMAT: "PIN은 4~8자리 숫자.", PIN_IN_USE: "다른 계정이 쓰는 PIN이에요 (PIN으로 직원을 식별하므로 중복 불가).", PIN_REQUIRED: "새 계정은 PIN이 필요해요.", ID_INVALID: "아이디는 영문 소문자·숫자·_ 2~20자.", LAST_ADMIN: "마지막 총괄 계정은 바꿀 수 없어요.", CANNOT_DEACTIVATE_SELF: "본인 계정은 비활성할 수 없어요.", VALUE_INVALID: "값을 확인하세요.", KEY_INVALID: "없는 설정 키." };
 
 // 총괄 전용: 운영 설정 + 수령소 코드 비밀키 + 계정·PIN

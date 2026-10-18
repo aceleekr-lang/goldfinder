@@ -2,10 +2,14 @@
 import { useEffect, useState } from "react";
 
 type Slot = { slot: number; starts_at: string; label: string | null; forecast: number };
-type W = { id: number; grade: string; start: string; end: string; quota: number; drawn: number; final_gold: boolean; final_day: boolean };
-type Detail = { ok: boolean; code?: string; day: { op_date: string; open_at: string; last_entry: string; close_at: string; grace_min: number; active: boolean } | null;
+type W = { id: number; grade: string; start: string; end: string; quota: number; drawn: number; final_gold: boolean; final_day: boolean; expected?: number | null; done?: number };
+type Detail = { ok: boolean; code?: string; day: { op_date: string; open_at: string; last_entry: string; close_at: string; grace_min: number; active: boolean; rsv_count: number | null } | null;
+  forecast?: Forecast | null;
   slots: Slot[]; prizes: Record<string, string>; windows: W[]; draws: number };
 
+type Forecast = { rsv: number; started: number; in_progress: number; stale: number; drawn: number; future_starts: number; elapsed: number; start_rate: number; finish_rate: number;
+  expected_remaining: number; expected_total: number; join_rate: number | null; prior_start: number; prior_finish: number; prior_from_history: boolean };
+const pct = (x: number | null | undefined) => x == null ? "-" : `${Math.round(x * 100)}%`;
 const GRADES = ["g1", "g2", "g3"] as const;
 const GRADE_KO: Record<string, string> = { g1: "1등", g2: "2등", g3: "3등", card: "참가상" };
 const hm = (t: string) => (t ?? "").slice(0, 5);
@@ -20,6 +24,7 @@ export default function DayEditor({ date }: { date: string }) {
   const [reason, setReason] = useState("");
   const [copyFrom, setCopyFrom] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [rsv, setRsv] = useState("");
 
   const apply = (j: Detail) => {
     setD(j);
@@ -27,6 +32,7 @@ export default function DayEditor({ date }: { date: string }) {
     setSlots((j.slots ?? []).map((s) => ({ ...s, starts_at: hm(s.starts_at) })));
     setPrizes(j.prizes ?? {});
     setWins(j.windows ?? []);
+    if (j.day) setRsv(j.day.rsv_count == null ? "" : String(j.day.rsv_count));
   };
   const load = () => fetch(`/api/admin/opdays/${date}`).then((r) => r.json()).then(apply);
   useEffect(() => { load(); }, [date]);   // eslint-disable-line
@@ -50,6 +56,8 @@ export default function DayEditor({ date }: { date: string }) {
   const saveWindows = () => post(`/api/admin/opdays/${date}`, { action: "windows", reason,
     windows: wins.map((w) => ({ grade: w.grade, start: w.start, end: w.end, quota: Number(w.quota), final_gold: w.final_gold, final_day: w.final_day })) }, "경품 창 저장됨 (이력 기록)");
   const saveOneQuota = (w: W) => post(`/api/admin/opdays/${date}`, { action: "window_quota", id: w.id, quota: Number(w.quota), reason }, "창 수량 변경됨 (이력 기록)");
+  const saveRsv = (clear = false) => post(`/api/admin/opdays/${date}`, { action: "rsv", rsv_count: clear ? null : (rsv === "" ? null : Number(rsv)) },
+    clear ? "예약자 수 해제 — 순차 개방 방식으로 돌아갔어요" : "예약자 수 저장됨 — 랜덤 배출로 동작해요");
   const copy = () => post(`/api/admin/opdays/${date}`, { action: "copy", from: copyFrom }, `${copyFrom} 설정을 복사했어요`);
   const total = (g: string) => wins.filter((w) => w.grade === g).reduce((n, w) => n + Number(w.quota), 0);
   const inp = { fontSize: 16, padding: 8, border: "1px solid var(--line)", borderRadius: 8, width: "100%" } as const;
@@ -58,6 +66,31 @@ export default function DayEditor({ date }: { date: string }) {
     <h1>{date} {day.active ? "" : "(비활성)"}</h1>
     {msg ? <div className="banner">{msg}</div> : null}
     {d.draws > 0 ? <p className="muted">이 날 뽑기 {d.draws}건 진행됨 — 시간대·배정 변경은 신중히.</p> : null}
+
+
+    <div className="card" style={{ border: d.day.rsv_count == null ? "2px solid #c62828" : undefined }}>
+      <h2 style={{ marginTop: 0 }}>오늘 사전예약자 수 (행사 시작 전 입력)</h2>
+      <p className="muted">참여율은 자동이에요. 예약번호를 넣고 시작한 사람 수·진행 중인 사람 수·완주 비율을 서버 기록으로 뽑을 때마다 다시 계산해서, 남은 경품이 그날 안에 다 나가도록 움직여요. 22:00 최종 입장 뒤에는 인원이 확정돼 더 정확해져요. 각 창 마감 직전(앞 창 15분·뒤 창 30분)에는 남은 경품이 바로 나와요.</p>
+      <label>사전예약자 수(명)<input type="number" min={0} inputMode="numeric" style={inp} value={rsv} placeholder="예: 480" onChange={(e) => setRsv(e.target.value)} /></label>
+      {d.day.rsv_count == null ? <p style={{ margin: "8px 0" }}><b style={{ color: "#c62828" }}>미입력 — 지금은 예전 순차 개방 방식으로 동작해요</b></p> : null}
+      <button className="btn" onClick={() => saveRsv()} disabled={rsv === ""}>예약자 수 저장</button>
+      {d.day.rsv_count != null ? <button className="btn secondary" onClick={() => saveRsv(true)}>입력 해제 (순차 개방으로)</button> : null}
+      {d.forecast ? (
+        <div style={{ marginTop: 10, padding: 10, background: "var(--bg2, #f6f4ee)", borderRadius: 8, fontSize: 14 }}>
+          <b>지금 추정</b> <span className="muted">(새로고침하면 갱신)</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 10px", marginTop: 6 }}>
+            <span>예약자</span><b>{d.forecast.rsv}명</b>
+            <span>시작(예약번호 입력)</span><b>{d.forecast.started}명</b>
+            <span>진행 중 / 이탈 추정</span><b>{d.forecast.in_progress}명 / {d.forecast.stale}명</b>
+            <span>뽑기 완료</span><b>{d.forecast.drawn}명</b>
+            <span>더 올 것으로 보는 시작</span><b>{d.forecast.future_starts}명</b>
+            <span>예상 남은 뽑기</span><b>{Math.ceil(d.forecast.expected_remaining)}명</b>
+            <span>참여율 추정 (뽑기 ÷ 예약)</span><b>{pct(d.forecast.join_rate)}</b>
+            <span>시작 비율 · 완주 비율</span><b>{pct(d.forecast.start_rate)} · {pct(d.forecast.finish_rate)}</b>
+          </div>
+          <p className="muted" style={{ margin: "6px 0 0" }}>사전값 시작 {pct(d.forecast.prior_start)} · 완주 {pct(d.forecast.prior_finish)}{d.forecast.prior_from_history ? " (지난 운영일 실적)" : " (설정값 — 실적이 쌓이면 자동 대체)"}</p>
+        </div>) : null}
+    </div>
 
     <div className="card">
       <h2 style={{ marginTop: 0 }}>운영시간</h2>
@@ -94,9 +127,9 @@ export default function DayEditor({ date }: { date: string }) {
 
     <div className="card">
       <h2 style={{ marginTop: 0 }}>경품 창 (배출 엔진)</h2>
-      <p className="muted">창 길이를 (수량+1)로 나눠 경계 시각마다 1개씩 순서대로 열려요 · 마감 15분 전 잔여 전량 개방 · 2·3등 잔여는 다음 창(익일 1구간 포함)으로 자동 이월 · 금은 최종일 창에만 과거 미배출 합산.</p>
+      <p className="muted">예약자 수가 입력된 날: 창의 예상 남은 인원(실시간 추정 × 창의 남은 시간 몫) 안에서 완전 랜덤 · 창 마감 직전 남은 경품 바로 배출 · 남은 경품은 다음 창·다음 운영일로 이월. 예약자 수 미입력 날: 창을 (수량+1)로 나눠 순서대로 개방.</p>
       <table style={{ width: "100%", fontSize: 14, borderCollapse: "collapse", textAlign: "center" }}>
-        <thead><tr style={{ color: "var(--muted)" }}><th style={{ textAlign: "left" }}>등급</th><th>시작</th><th>끝</th><th>수량</th><th>배출</th><th>표시</th><th /></tr></thead>
+        <thead><tr style={{ color: "var(--muted)" }}><th style={{ textAlign: "left" }}>등급</th><th>시작</th><th>끝</th><th>수량</th><th>배출</th><th>남은 예상/뽑은 수</th><th>표시</th><th /></tr></thead>
         <tbody>{wins.map((w, i) => (
           <tr key={w.id ?? i} style={{ borderTop: "1px solid var(--line)" }}>
             <td style={{ textAlign: "left", padding: "6px 0" }}>{w.id ? <b>{GRADE_KO[w.grade]}</b> :
@@ -105,6 +138,7 @@ export default function DayEditor({ date }: { date: string }) {
             <td><input type="time" style={{ ...inp, width: 96 }} value={w.end} disabled={d.draws > 0} onChange={(e) => setWins(wins.map((x, k) => k === i ? { ...x, end: e.target.value } : x))} /></td>
             <td><input type="number" min={0} style={{ ...inp, width: 64, textAlign: "center" }} value={w.quota} onChange={(e) => setWins(wins.map((x, k) => k === i ? { ...x, quota: Number(e.target.value) } : x))} /></td>
             <td className="muted">{w.drawn}</td>
+            <td className="muted">{w.expected == null ? "-" : `${w.expected}/${w.done ?? 0}`}</td>
             <td className="muted">{w.final_gold ? "최종금 " : ""}{w.final_day ? "재배분" : ""}</td>
             <td>{d.draws > 0 ? <button className="btn secondary" style={{ padding: 6, margin: 0, fontSize: 13 }} onClick={() => saveOneQuota(w)} disabled={reason.trim().length < 2}>수량만 저장</button>
                              : <button className="btn secondary" style={{ padding: 6, margin: 0, fontSize: 13 }} onClick={() => setWins(wins.filter((_, k) => k !== i))}>×</button>}</td>

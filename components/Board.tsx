@@ -74,7 +74,7 @@ export default function Board() {
         <p style={S.title}>오늘 남은 경품</p>
         <p style={{ ...S.sub, margin: 0 }}>현재 {clock} · 뽑기는 {hm(b.close_at)}까지</p>
       </div>
-      <p style={S.sub}>5가지 별을 모두 깨우고 출구를 지나면 뽑기권! 경품은 순서대로 배정됩니다.</p>
+      <p style={S.sub}>5가지 별을 모두 깨우고 출구를 지나면 뽑기권! 경품은 뽑을 때마다 무작위로 정해집니다.</p>
       {(["g1", "g2", "g3"] as const).map((g) => { const big = g === "g1", n = q[g] ?? 0; return (
         <div key={g} style={S.row(big)}>
           <div style={S.grade(big)}>{{ g1: "1등", g2: "2등", g3: "3등" }[g]}</div>

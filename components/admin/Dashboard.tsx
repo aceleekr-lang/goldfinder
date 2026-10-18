@@ -7,7 +7,7 @@ type D = { ok: boolean; kst_now: string; op_day: { op_date: string; open_at: str
   tags: { total: number; active: number; cooling: number; inactive: string[]; spare_on: string[]; gates_off: string[]; checked_today?: number }; test_today?: number;
   active_raw?: number; active_fresh?: number; stale?: number; stale_list?: { session_id: string; join_code: string; minutes: number; stars: number }[];
   started_today?: number; completed?: number; expired?: number; tickets?: Record<string, number>; draws_today?: number; results_today?: Record<string, number>;
-  quota_now?: Record<string, { allocated: number; remaining: number }>; quota_day?: Record<string, { allocated: number; remaining: number }>; left_total?: Record<string, number>; quota_missing?: boolean;
+  quota_now?: Record<string, { allocated: number; remaining: number }>; quota_day?: Record<string, { allocated: number; remaining: number }>; left_total?: Record<string, number>; quota_missing?: boolean; rsv_missing?: boolean; forecast?: { rsv: number; started: number; in_progress: number; stale: number; drawn: number; expected_remaining: number; join_rate: number | null } | null;
   wishes_today?: number; manual_ops_today?: number };
 
 const Num = ({ label, v, warn }: { label: string; v: number | string | undefined; warn?: boolean }) => (
@@ -30,6 +30,8 @@ export default function Dashboard() {
     <h1>대시보드 <span className="muted" style={{ fontSize: 13 }}>{d.kst_now?.replace("T", " ").slice(0, 19)} KST · 30초 갱신</span></h1>
     {msg ? <div className="banner">{msg}</div> : null}
     {!d.op_day ? <div className="banner">오늘은 운영일이 아닙니다 — 모든 태그가 비운영 안내를 표시합니다. <Link href="/admin/opdays">운영일 관리</Link></div> : (<>
+      {d.rsv_missing ? <div className="banner" style={{ background: "#fde0e0", borderColor: "#c62828" }}>오늘 사전예약자 수가 입력되지 않았어요 — 행사 시작 전에 입력해 주세요. <Link href={`/admin/day/${d.op_day.op_date}`}>입력하기</Link></div> : null}
+      {d.forecast ? <p className="muted">오늘 예약 {d.forecast.rsv} · 시작 {d.forecast.started} · 진행 중 {d.forecast.in_progress}(이탈 추정 {d.forecast.stale}) · 뽑기 {d.forecast.drawn} · 예상 남은 뽑기 {Math.ceil(d.forecast.expected_remaining)} · 참여율 추정 {d.forecast.join_rate == null ? "-" : Math.round(d.forecast.join_rate * 100) + "%"}</p> : null}
       {d.quota_missing ? <div className="banner" style={{ background: "#fde0e0", borderColor: "#c62828" }}>오늘 당첨 수량 배정이 없습니다 — 뽑기가 전부 참가상으로 나갑니다. <Link href={`/admin/day/${d.op_day.op_date}`}>배정하기</Link></div> : null}
       <div className="card">
         <p style={{ margin: 0 }}><b>{d.op_day.op_date}</b> {d.op_day.open_at.slice(0, 5)}~{d.op_day.close_at.slice(0, 5)} · 현재 {d.slot}구간 · 입장 상한 {d.entry_cap} · 쿨다운 {d.cooldown_sec}초</p>
