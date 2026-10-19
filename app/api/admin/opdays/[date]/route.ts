@@ -22,6 +22,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ date: stri
       case "window_quota": r = await rpc("admin_window_quota_set", [Number(b.id), Number(b.quota), op.id, String(b.reason ?? "")]);
                            if (r.ok) r = await rpc("admin_opday_get", [date]); break;
       case "rsv":    r = await rpc("admin_rsv_set", [date, b.rsv_count === null || b.rsv_count === "" ? null : Number(b.rsv_count), op.id]); break;
+      case "adjust":       r = await rpc("admin_day_adjust_set", [date, JSON.stringify(b.adjust ?? {}), op.id, String(b.reason ?? "")]); break;
+      case "adjust_clear": r = await rpc("admin_day_adjust_clear", [date, op.id, String(b.reason ?? "")]); break;
       case "copy":   r = await rpc("admin_opday_copy", [b.from, date, op.id]); break;
       default: return json({ ok: false, code: "ACTION_INVALID" }, 400);
     }

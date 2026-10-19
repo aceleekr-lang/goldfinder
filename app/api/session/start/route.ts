@@ -7,6 +7,11 @@ import { getTester } from "@/lib/tester";
 // 새 시작은 본인 예약번호 6자리 필수 → DB 함수가 같은 트랜잭션에서 rsv_claim 호출 (v4)
 // gf_rid: 시작 화면 식별 쿠키 — 예약번호 5회 오류 5분 차단 키 (세션 생성 전이라 gf_sid 대신 사용)
 const RID = "gf_rid";
+// GET: 시작 화면이 어떤 번호를 받을지 (설정 rsv_key: phone | code)
+export async function GET() {
+  try { const r = await rpc("admin_settings_get", []); return json({ ok: true, rsv_key: (r as { settings?: Record<string, { value: string }> }).settings?.rsv_key?.value ?? "code" }); }
+  catch (e) { return serverError(e); }
+}
 export async function POST(req: NextRequest) {
   try {
     const limited = await ipLimited(req, rpc); if (limited) return limited;
@@ -14,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (typeof tagId !== "string") return json({ ok: false, code: "TAG_INVALID" }, 400);
     let rid = req.cookies.get(RID)?.value ?? null; let newRid = false;
     if (!rid || !/^[a-f0-9]{32}$/.test(rid)) { rid = crypto.randomUUID().replace(/-/g, ""); newRid = true; }
-    const code = typeof rsvCode === "string" ? rsvCode.replace(/\D/g, "").slice(0, 6) : null;
+    const code = typeof rsvCode === "string" ? rsvCode.replace(/\D/g, "").slice(0, 11) : null;   // 휴대폰번호(10~11자리) 또는 예약번호(6자리) — 판정은 DB(설정 rsv_key)
     const r = await rpc("session_start", [tagId, getToken(req), code || null, rid, getTester(req)]);
     let res = json(r, r.ok ? 200 : 409);
     if (r.ok && typeof r.token === "string") res = withSessionCookie(res, r.token);

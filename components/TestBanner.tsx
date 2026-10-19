@@ -12,7 +12,7 @@ export default function TestBanner() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { setMark(readMark()); }, []);
   if (!mark) return null;
-  const flags = [mark.includes("f") ? "빠른 테스트" : null, mark.includes("c") ? "태그 점검 모드" : null, mark.includes("r") ? "실제 예약번호" : "예약번호 아무 6자리"].filter(Boolean).join(" · ");
+  const flags = [mark.includes("f") ? "빠른 테스트" : null, mark.includes("c") ? "태그 점검 모드" : null, mark.includes("r") ? "실제 예약" : "번호 아무거나"].filter(Boolean).join(" · ");
   const reset = async () => {
     if (!confirm("이 폰의 테스트 참가를 끝내고 처음부터 다시 시작할까요? (기록은 남아요)")) return;
     setBusy(true); await fetch("/api/test/reset", { method: "POST" }).catch(() => {}); window.location.href = "/";

@@ -17,7 +17,7 @@ export default function Collection() {
     return (<>
       <h1>내 별자리</h1>
       <div className="card"><p>{s.ok ? "오늘 참여 기록이 없어요." : errText(s.code)}</p></div>
-      <Link className="btn" href="/recover">참여번호로 이어서 하기</Link>
+      <Link className="btn" href="/recover">휴대폰번호로 이어서 하기</Link>
       <p className="muted">처음이라면 입구의 시작 표식을 태그해 주세요.</p>
     </>);
   }
@@ -45,7 +45,8 @@ export default function Collection() {
       </div>
       <div className="card">
         <p className="muted">화면이 사라지거나 다른 폰으로 옮길 때 필요한 번호예요. 다른 사람에게 보이지 않게 해 주세요.</p>
-        {showCode ? <div className="bigcode">{s.join_code}</div> : <button className="btn secondary" onClick={() => setShowCode(true)}>참여번호 보기</button>}
+        {showCode ? <><div className="bigcode">{s.join_code}</div><p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>안내 요원이 물어볼 때만 보여 주세요. 폰이 바뀌면 시작 표식에 다시 대고 <b>본인 휴대폰번호</b>를 넣으면 이어져요.</p></>
+          : <button className="btn secondary" onClick={() => setShowCode(true)}>안내 요원용 번호 보기</button>}
       </div>
     </>
   );

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (kind === "days") {
       const r = await rpc("admin_export_days", []);
       rows = (r.rows as Record<string, unknown>[]) ?? [];
-      cols = ["op_date", "started", "completed", "tickets", "draws", "g1", "g2", "g3", "card", "redeemed", "wishes"];
+      cols = ["op_date", "participants", "local", "out", "completed", "draws", "g1", "g2", "g3", "card", "wishes", "male", "female", "age_bands", "regions"];   // 수기 보정이 있으면 최종값만 (adjusted 칸은 내보내지 않음)
     } else if (kind === "draws") {
       const r = await rpc("admin_export_draws", []);
       rows = (r.rows as Record<string, unknown>[]) ?? [];

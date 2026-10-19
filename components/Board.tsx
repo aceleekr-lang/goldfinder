@@ -6,7 +6,13 @@ const ORD = ["", "첫 번째", "두 번째", "세 번째", "네 번째", "다섯
 const hm = (t?: string) => (t ?? "").slice(0, 5);
 
 // 입구 현황판 — 1920×1080 가로 모니터, 5초 갱신(금 당첨 축하 연출 감지).
-// 당일 잔여 총량(이월 포함)만 보여준다. 구간·개방 규칙은 노출하지 않고 "순서대로 배정됩니다"로 안내 (12차 ⑥·⑦ 확정)
+// 당일 잔여 총량(이월 포함)만 보여준다. 구간·개방 규칙은 노출하지 않는다 (12차 ⑥·⑦ 확정)
+// 2026-10-18 설명 슬라이드 순환: public/board/slide1~3.png(각 5초, 0.5초 페이드) → 현황판(5초) → 반복.
+//   못 불러온 슬라이드는 건너뜀(하나도 없으면 현황판만). 금 당첨 영상 중에는 순환 정지, 끝나면 ①부터.
+//   페이지를 열 때마다 ?v=시각을 붙여 받으므로 같은 이름으로 덮어쓴 뒤 화면 새로고침(F5)하면 새 그림이 나온다
+const SLIDE_SRC = ["/board/slide1.png", "/board/slide2.png", "/board/slide3.png"];
+const SLIDE_MS = 5000, FADE_MS = 500;
+
 export default function Board() {
   const [b, setB] = useState<B | null>(null);
   const [clock, setClock] = useState("");
@@ -16,6 +22,8 @@ export default function Board() {
   const audio = useRef<HTMLAudioElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const goldNow = useRef(0);
+  const [slides, setSlides] = useState<string[] | null>(null);   // 불러오기에 성공한 슬라이드 주소(순서 유지). null = 확인 중
+  const [pos, setPos] = useState(0);                              // 순환 위치: 0..slides.length-1 = 슬라이드, slides.length = 현황판
   // /board?test=1 → 테스트 뽑기의 금 당첨으로 연출 (리허설용, 이 화면에서만). 잔여 수량은 실제 값
   const isTest = () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("test") === "1";
   const load = () => fetch(isTest() ? "/api/board/data?test=1" : "/api/board/data").then((r) => r.json()).then((j: B) => {
@@ -37,6 +45,21 @@ export default function Board() {
     const k = (e: KeyboardEvent) => { if (e.key === "g" || e.key === "G") fire(Math.max(1, goldNow.current + 1)); };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
   }, []);
+  // 슬라이드 미리 불러오기 — 실패한 장은 제외 (검은 화면·깨진 그림 방지)
+  useEffect(() => {
+    const v = Date.now(); let alive = true;
+    Promise.all(SLIDE_SRC.map((src) => new Promise<string | null>((res) => { const im = new Image(); im.onload = () => res(`${src}?v=${v}`); im.onerror = () => res(null); im.src = `${src}?v=${v}`; })))
+      .then((r) => { if (alive) setSlides(r.filter((x): x is string => !!x)); });
+    return () => { alive = false; };
+  }, []);
+  // 순환 타이머 — 금 당첨 연출 중에는 멈추고, 연출이 끝나면 슬라이드 ①부터
+  const paused = celebrate !== null;
+  useEffect(() => {
+    if (!slides || slides.length === 0 || paused || !b?.op_day) return;
+    const c = setTimeout(() => setPos((x) => (x + 1) % (slides.length + 1)), SLIDE_MS);
+    return () => clearTimeout(c);
+  }, [slides, pos, paused, b?.op_day]);
+  useEffect(() => { if (!paused) setPos(0); }, [paused]);
   useEffect(() => { const t = () => setClock(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" })); t(); const i = setInterval(t, 1000); return () => clearInterval(i); }, []);
   const S = { wrap: { position: "fixed" as const, inset: 0, background: "var(--navy, #141B33)", color: "#F5F1E6", display: "flex", flexDirection: "column" as const, padding: "3vh 4vw", fontFamily: "inherit" },
     title: { fontSize: "5vh", fontWeight: 800, margin: 0 }, sub: { fontSize: "3vh", opacity: 0.8, margin: "1vh 0 3vh" },
@@ -67,9 +90,13 @@ export default function Board() {
   if (!b.op_day) return <div style={S.wrap}>{audioEl}{armBtn}{overlay}<p style={S.title}>영남루에 흩어진 별을 찾아라</p><p style={S.sub}>이벤트는 10. 18.~11. 8. 주말(토·일) 저녁에 운영됩니다 · 사전예약제 · 10월 20:30~23:00 / 11월 19:00~23:00 (최종 입장 22:00)</p></div>;
   const q = b.quota ?? {}, p = b.prizes ?? {};
   const allZero = ["g1", "g2", "g3"].every((g) => (q[g] ?? 0) === 0);
+  // 슬라이드는 장마다 한 겹씩 겹쳐 두고 차례인 장만 보이게 — 장 사이·현황판과의 전환이 모두 0.5초 크로스페이드
+  const slideEl = (slides ?? []).map((src, i) => (
+    <div key={src} aria-hidden style={{ position: "fixed", inset: 0, zIndex: 40 + i, opacity: pos === i ? 1 : 0, transition: `opacity ${FADE_MS}ms ease`, pointerEvents: "none",
+      backgroundImage: `url("${src}")`, backgroundSize: "cover", backgroundPosition: "center", backgroundColor: "#141B33" }} />));
   return (
     <div style={S.wrap}>
-      {audioEl}{armBtn}{overlay}
+      {audioEl}{armBtn}{slideEl}{overlay}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <p style={S.title}>오늘 남은 경품</p>
         <p style={{ ...S.sub, margin: 0 }}>현재 {clock} · 뽑기는 {hm(b.close_at)}까지</p>

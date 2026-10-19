@@ -44,7 +44,7 @@ export default function TestAdmin() {
         <p><b style={{ color: "#c62828" }}>테스트폰으로 등록됨</b> — {me.label} · {t(me.expires_at)}까지</p>
         <Toggle dev={me} k="fast" v={me.fast} name="빠른 테스트" desc="별 사이 30초 간격·최소 참여 시간을 생략해요. 끄면 관람객과 똑같은 조건으로 체험해요." />
         <Toggle dev={me} k="check" v={me.check_mode} name="태그 점검 모드" desc="태그를 찍으면 게임 대신 '영남루별 3번 · 정상 ✓'처럼 태그 정보만 보여 주고 점검 시각을 기록해요. 설치·순찰 점검용." />
-        <Toggle dev={me} k="rsv_real" v={me.rsv_real} name="실제 예약번호로 시작" desc="예약앱에서 만든 진짜 예약번호로 시작해 연동을 확인해요 (번호 1개가 사용 처리됨). 끄면 아무 6자리로 시작." />
+        <Toggle dev={me} k="rsv_real" v={me.rsv_real} name="실제 예약으로 시작" desc="예약앱에 있는 진짜 번호(휴대폰번호 또는 예약번호)로 시작해 연동을 확인해요 (사용 처리됨). 끄면 아무 번호로 시작." />
         <button className="btn secondary" disabled={busy} onClick={async () => { await fetch("/api/test/reset", { method: "POST" }); setMsg("이 폰의 테스트 참가를 초기화했어요. 시작 표식을 찍으면 새로 시작돼요."); }}>이 폰 새 테스트 시작 (참가 초기화)</button>
         <button className="btn secondary" disabled={busy} onClick={() => confirm("이 폰의 테스트폰 등록을 해제할까요?") && post({ action: "revoke", id: me.id }, "이 폰 테스트폰 해제됨")}>이 폰 테스트폰 해제</button>
       </>) : (<>
@@ -59,7 +59,7 @@ export default function TestAdmin() {
       <h2 style={{ marginTop: 0 }}>테스트폰에서 달라지는 것</h2>
       <ul style={{ paddingLeft: 18, margin: 0, lineHeight: 1.7, fontSize: 15 }}>
         <li>운영일·시간과 관계없이 언제든 시작 (관람객 폰은 그대로 "운영일 아님")</li>
-        <li>예약번호는 아무 6자리 — 예약앱을 호출하지 않아요 (실제 예약번호 스위치를 켜면 진짜 번호)</li>
+        <li>번호는 아무거나(휴대폰번호 모드면 010-0000-0000 같은 형식) — 예약앱을 호출하지 않아요 (실제 예약 스위치를 켜면 진짜 번호)</li>
         <li>입장 상한에서 빠지고, 별 태그 쿨다운을 걸지 않아 관람객을 방해하지 않아요</li>
         <li>뽑기는 수령소 코드까지 실제와 같고, 결과는 <b>모의</b>(지금 진짜로 뽑으면 나올 결과) 또는 <b>지정</b>(금·2등·3등·꽝). 실제 경품 수량은 줄지 않아요</li>
         <li>모든 화면 위에 빨간 띠, 뽑기 결과에 <b>TEST</b> 표시 · 수령소 목록에도 TEST</li>

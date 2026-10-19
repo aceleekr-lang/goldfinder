@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     let r;
     if (b.action === "setting") r = await rpc("settings_set", [String(b.key ?? ""), String(b.value ?? ""), op.id]);
     else if (b.action === "rotate_secret") r = await rpc("admin_desk_secret_rotate", [op.id]);
+    else if (b.action === "purge") r = await rpc("admin_purge_personal", [op.id]);
     else if (b.action === "operator") r = await rpc("admin_operator_set", [String(b.id ?? "").toLowerCase(), String(b.name ?? ""), b.pin ? String(b.pin) : null, String(b.role ?? "staff"), b.active !== false, op.id]);
     else return json({ ok: false, code: "ACTION_INVALID" }, 400);
     return withAdminCookie(json(r, r.ok ? 200 : 400), op);

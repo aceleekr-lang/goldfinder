@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StarSlots from "./StarSlots";
 import StoryCard from "./StoryCard";
-import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
+import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE_CODE, RSV_NOTE2_CODE, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
 import { readMark } from "./TestBanner";
 import MapIntro from "./MapIntro";
 import GateIntro from "./fx/GateIntro";
@@ -13,6 +13,13 @@ import Constellation from "./fx/Constellation";
 import { sfx } from "@/lib/sfx";
 
 // 같은 날 같은 장면은 한 번만 (브라우저 저장소가 막힌 폰은 매번 — 짧게 건너뛸 수 있음)
+// 남은 초 카운트다운 — 0이 되면 then 문구 (쿨다운·너무 빠름 안내용, 2026-10-19)
+function Countdown({ sec, then, fmt }: { sec: number; then: string; fmt: (n: number) => React.ReactNode }) {
+  const [n, setN] = useState(Math.max(0, Math.ceil(sec)));
+  useEffect(() => { if (n <= 0) return; const t = setTimeout(() => setN(n - 1), 1000); return () => clearTimeout(t); }, [n]);
+  return <span>{n > 0 ? fmt(n) : <b style={{ color: "#1a7f37" }}>{then}</b>}</span>;
+}
+
 function seenOnce(key: string): boolean { try { if (localStorage.getItem(key)) return true; localStorage.setItem(key, "1"); } catch {} return false; }
 
 type Resp = { ok: boolean; status?: string; code?: string; [k: string]: any };
@@ -41,14 +48,18 @@ function StartFlow({ tagId }: { tagId: string }) {
   const [mark, setMark] = useState<string | null>(null);
   const [phase, setPhase] = useState<"form" | "gate" | "map">("form");   // 예약번호 확인 → 문 두드리기 → 지도·역주행 동의 → 별자리 화면
   useEffect(() => { setMark(readMark()); }, []);
+  const [mode, setMode] = useState<"phone" | "code">("phone");   // 예약 확인 열쇠 (서버 설정 rsv_key)
+  useEffect(() => { fetch("/api/session/start").then((r) => r.json()).then((j) => { if (j.rsv_key === "code") setMode("code"); }).catch(() => {}); }, []);
   const start = async () => {
     setBusy(true); setR(null);
     const res = await post("/api/session/start", { tagId, rsvCode: code });
     setBusy(false);
     if (res.ok && res.status === "STARTED") { setName((res.name as string) || ""); setPhase("gate"); return; }
-    if (res.ok && res.status === "RESUMED") { router.replace("/s"); return; }
+    if (res.ok && (res.status === "RESUMED" || res.status === "REATTACHED")) { router.replace("/s"); return; }   // REATTACHED: 본인 번호로 이어서 (2026-10-19)
     setR(res);   // COMPLETED(당일 참여 완료) 또는 오류
   };
+  const fmtPhone = (d: string) => d.length <= 3 ? d : d.length <= 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
+  const valid = mode === "phone" ? /^01[0-9][0-9]{7,8}$/.test(code) : code.length === 6;
   if (name !== null) {
     return (<>
       <h1>{name ? `${name}님, 시작합니다` : "시작합니다"}</h1><div className="card"><p>별자리 화면으로 이동해요…</p></div>
@@ -75,24 +86,33 @@ function StartFlow({ tagId }: { tagId: string }) {
     <>
       <h1>별찾기를 시작할까요?</h1>
       <div className="card">
-        <p>{RSV_NOTE}</p>
-        <p className="muted">{RSV_NOTE2}</p>
+        <p>{mode === "phone" ? RSV_NOTE : RSV_NOTE_CODE}</p>
+        <p className="muted">{mode === "phone" ? RSV_NOTE2 : RSV_NOTE2_CODE}</p>
         <p className="muted">{RSV_NOTE3}</p>
       </div>
       <div className="card">
-        <label htmlFor="rsv" style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>본인 예약번호 6자리</label>
-        <input id="rsv" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="one-time-code" placeholder="예) 123456"
-          value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          style={{ width: "100%", fontSize: 28, letterSpacing: 6, textAlign: "center", padding: 10, borderRadius: 10, border: "1px solid var(--line, #ccc)" }} />
-        {mark ? <p style={{ color: "#c62828", fontWeight: 700, margin: "6px 0" }}>{mark.includes("r") ? "테스트폰 · 실제 예약번호 모드: 예약앱에서 만든 진짜 번호를 넣으세요 (번호 1개가 사용 처리돼요)." : "테스트폰: 아무 6자리 숫자(예: 000000)로 시작할 수 있어요."}</p> : null}
-        <p className="muted" style={{ marginTop: 6 }}>번호를 모르시면 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 이름·휴대폰으로 확인하세요. (참여번호와는 다른 번호예요)</p>
+        {mode === "phone" ? (<>
+          <label htmlFor="rsv" style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>본인 휴대폰번호</label>
+          <input id="rsv" type="tel" inputMode="numeric" autoComplete="tel" maxLength={13} placeholder="010-0000-0000"
+            value={fmtPhone(code)} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 11))}
+            style={{ width: "100%", fontSize: 26, letterSpacing: 2, textAlign: "center", padding: 10, borderRadius: 10, border: "1px solid var(--line, #ccc)" }} />
+          {mark ? <p style={{ color: "#c62828", fontWeight: 700, margin: "6px 0" }}>{mark.includes("r") ? "테스트폰 · 실제 예약 모드: 예약앱에 있는 진짜 휴대폰번호를 넣으세요 (사용 처리돼요)." : "테스트폰: 아무 휴대폰번호(예: 010-0000-0000)로 시작할 수 있어요."}</p> : null}
+          <p className="muted" style={{ marginTop: 6 }}>예약할 때 적은 번호예요. 예약 여부는 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 확인할 수 있어요.</p>
+        </>) : (<>
+          <label htmlFor="rsv" style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>본인 예약번호 6자리</label>
+          <input id="rsv" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="one-time-code" placeholder="예) 123456"
+            value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            style={{ width: "100%", fontSize: 28, letterSpacing: 6, textAlign: "center", padding: 10, borderRadius: 10, border: "1px solid var(--line, #ccc)" }} />
+          {mark ? <p style={{ color: "#c62828", fontWeight: 700, margin: "6px 0" }}>{mark.includes("r") ? "테스트폰 · 실제 예약번호 모드: 예약앱에서 만든 진짜 번호를 넣으세요 (번호 1개가 사용 처리돼요)." : "테스트폰: 아무 6자리 숫자(예: 000000)로 시작할 수 있어요."}</p> : null}
+          <p className="muted" style={{ marginTop: 6 }}>번호를 모르시면 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 이름·휴대폰으로 확인하세요.</p>
+        </>)}
       </div>
       {errCode ? <div className="card"><p>{errMsg}</p>
         {errCode === "RSV_NOTFOUND" ? <p className="muted"><a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회로 가기</a></p> : null}</div> : null}
-      <button className="btn" onClick={start} disabled={busy || code.length !== 6}>{busy ? "확인 중…" : "시작하기"}</button>
+      <button className="btn" onClick={start} disabled={busy || !valid}>{busy ? "확인 중…" : "시작하기"}</button>
       <div className="card">
         <p className="muted">정원 곳곳의 별 표식에 휴대폰을 대고, 이야기를 읽은 뒤 문제를 맞히면 별이 깨어나요. 5가지 색을 모두 깨우고 <b>출구 표식</b>을 태그하면 뽑기권!</p>
-        <p className="muted">별 표식은 <b>5가지 색 스티커</b>로 구분돼요. 색을 보고 아직 못 깨운 별을 찾아가세요. 참여는 1인 1일 1회, 이미 시작했다면 번호 없이 그대로 이어집니다.</p>
+        <p className="muted">별 표식은 <b>5가지 색 스티커</b>로 구분돼요. 색을 보고 아직 못 깨운 별을 찾아가세요. 참여는 1인 1일 1회, 이미 시작했다면 그대로 이어집니다.</p>
         <ColorLegend />
       </div>
     </>
@@ -145,7 +165,7 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
     return (<>
       <StarHead color={color} title={colorName} />
       <div className="card"><p>{errText(r.code)}</p></div>
-      {r.code === "NO_SESSION" ? <Link className="btn" href="/recover">참여번호로 이어서 하기</Link> : null}
+      {r.code === "NO_SESSION" ? <Link className="btn" href="/recover">휴대폰번호로 이어서 하기</Link> : null}
       {r.code === "SESSION_COMPLETED" ? <Link className="btn" href="/ticket">뽑기권 보기</Link> : null}
       <Link className="btn secondary" href="/s">내 별자리</Link>
     </>);
@@ -222,15 +242,16 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
     </>);
   }
 
-  const msg: Record<string, string> = {
+  const msg: Record<string, React.ReactNode> = {
     DUP_COLOR: `${colorName}은 이미 깨웠어요. 아직 잠든 별: ${remaining || "없음"}`,
     ALREADY_FAILED: `이 색은 오늘 깨울 수 없어요. 아직 잠든 다른 별: ${remaining || "없음"}`,
-    COOLDOWN: `이 별은 방금 다른 분이 깨웠어요. 같은 구역에 ${colorName}이 ${r.others_available ?? 0}개 더 있어요. 바로 옆 별을 찾아보세요.`,
-    TOO_FAST: `너무 빨라요! ${r.wait_sec ?? 30}초 뒤에 다시 태그해 주세요.`,
+    COOLDOWN: <>이 별은 방금 다른 분이 깨웠어요. <Countdown sec={r.seconds_left ?? 0} then="지금 다시 태그해 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 깨어나요.</u>} />
+      {(r.others_available ?? 0) > 0 ? <><br /><span className="muted">같은 구역에 {colorName}이 {r.others_available}개 더 있어요. 기다리기 싫으면 옆 별을 찾아보세요.</span></> : null}</>,
+    TOO_FAST: <>너무 빨라요! <Countdown sec={r.wait_sec ?? 30} then="지금 다시 태그해 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 태그해 주세요.</u>} /></>,
   };
   return (<>
     <StarHead color={color} title={colorName} />
-    <div className="card"><p>{msg[r.status ?? ""] ?? "다시 시도해 주세요."}</p></div>
+    <div className="card"><p style={{ fontSize: 17, lineHeight: 1.6 }}>{msg[r.status ?? ""] ?? "다시 시도해 주세요."}</p></div>
     <StarSlots stars={stars} />
     <Link className="btn secondary" href="/s">내 별자리</Link>
   </>);
@@ -254,7 +275,7 @@ function ExitFlow({ tagId }: { tagId: string }) {
     return (<>
       <h1>출구</h1>
       <div className="card"><p>{errText(r.code)}</p></div>
-      {r.code === "NO_SESSION" ? <Link className="btn" href="/recover">참여번호로 이어서 하기</Link> : null}
+      {r.code === "NO_SESSION" ? <Link className="btn" href="/recover">휴대폰번호로 이어서 하기</Link> : null}
       <Link className="btn secondary" href="/s">내 별자리</Link>
     </>);
   }

@@ -5,6 +5,8 @@ type Slot = { slot: number; starts_at: string; label: string | null; forecast: n
 type W = { id: number; grade: string; start: string; end: string; quota: number; drawn: number; final_gold: boolean; final_day: boolean; expected?: number | null; done?: number };
 type Detail = { ok: boolean; code?: string; day: { op_date: string; open_at: string; last_entry: string; close_at: string; grace_min: number; active: boolean; rsv_count: number | null } | null;
   forecast?: Forecast | null;
+  adjust?: { participants: number; local_cnt: number | null; out_cnt: number | null; g1: number; g2: number; g3: number; card: number; note: string | null; operator: string; updated_at: string } | null;
+  system?: { started: number; g1: number; g2: number; g3: number; card: number };
   slots: Slot[]; prizes: Record<string, string>; windows: W[]; draws: number };
 
 type Forecast = { rsv: number; started: number; in_progress: number; stale: number; drawn: number; future_starts: number; elapsed: number; start_rate: number; finish_rate: number;
@@ -25,6 +27,8 @@ export default function DayEditor({ date }: { date: string }) {
   const [copyFrom, setCopyFrom] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [rsv, setRsv] = useState("");
+  const [adj, setAdj] = useState<Record<string, string>>({ participants: "", local_cnt: "", out_cnt: "", g1: "", g2: "", g3: "", card: "", note: "" });
+  const [adjReason, setAdjReason] = useState("");
 
   const apply = (j: Detail) => {
     setD(j);
@@ -33,6 +37,8 @@ export default function DayEditor({ date }: { date: string }) {
     setPrizes(j.prizes ?? {});
     setWins(j.windows ?? []);
     if (j.day) setRsv(j.day.rsv_count == null ? "" : String(j.day.rsv_count));
+    if (j.adjust) setAdj({ participants: String(j.adjust.participants), local_cnt: j.adjust.local_cnt == null ? "" : String(j.adjust.local_cnt), out_cnt: j.adjust.out_cnt == null ? "" : String(j.adjust.out_cnt),
+      g1: String(j.adjust.g1), g2: String(j.adjust.g2), g3: String(j.adjust.g3), card: String(j.adjust.card), note: j.adjust.note ?? "" });
   };
   const load = () => fetch(`/api/admin/opdays/${date}`).then((r) => r.json()).then(apply);
   useEffect(() => { load(); }, [date]);   // eslint-disable-line
@@ -58,6 +64,9 @@ export default function DayEditor({ date }: { date: string }) {
   const saveOneQuota = (w: W) => post(`/api/admin/opdays/${date}`, { action: "window_quota", id: w.id, quota: Number(w.quota), reason }, "창 수량 변경됨 (이력 기록)");
   const saveRsv = (clear = false) => post(`/api/admin/opdays/${date}`, { action: "rsv", rsv_count: clear ? null : (rsv === "" ? null : Number(rsv)) },
     clear ? "예약자 수 해제 — 순차 개방 방식으로 돌아갔어요" : "예약자 수 저장됨 — 랜덤 배출로 동작해요");
+  const saveAdj = () => post(`/api/admin/opdays/${date}`, { action: "adjust", reason: adjReason, adjust: { participants: Number(adj.participants), local_cnt: adj.local_cnt === "" ? null : Number(adj.local_cnt), out_cnt: adj.out_cnt === "" ? null : Number(adj.out_cnt),
+    g1: Number(adj.g1 || 0), g2: Number(adj.g2 || 0), g3: Number(adj.g3 || 0), card: Number(adj.card || 0), note: adj.note || null } }, "수기 보정 저장됨 — 통계·CSV는 이 값으로 나가고, 이 날 경품 창의 나간 수량도 맞췄어요");
+  const clearAdj = () => post(`/api/admin/opdays/${date}`, { action: "adjust_clear", reason: adjReason }, "수기 보정 해제됨 (시스템 기록으로 복귀)");
   const copy = () => post(`/api/admin/opdays/${date}`, { action: "copy", from: copyFrom }, `${copyFrom} 설정을 복사했어요`);
   const total = (g: string) => wins.filter((w) => w.grade === g).reduce((n, w) => n + Number(w.quota), 0);
   const inp = { fontSize: 16, padding: 8, border: "1px solid var(--line)", borderRadius: 8, width: "100%" } as const;
@@ -70,7 +79,7 @@ export default function DayEditor({ date }: { date: string }) {
 
     <div className="card" style={{ border: d.day.rsv_count == null ? "2px solid #c62828" : undefined }}>
       <h2 style={{ marginTop: 0 }}>오늘 사전예약자 수 (행사 시작 전 입력)</h2>
-      <p className="muted">참여율은 자동이에요. 예약번호를 넣고 시작한 사람 수·진행 중인 사람 수·완주 비율을 서버 기록으로 뽑을 때마다 다시 계산해서, 남은 경품이 그날 안에 다 나가도록 움직여요. 22:00 최종 입장 뒤에는 인원이 확정돼 더 정확해져요. 각 창 마감 직전(앞 창 15분·뒤 창 30분)에는 남은 경품이 바로 나와요.</p>
+      <p className="muted">참여율은 자동이에요. 본인 번호를 넣고 시작한 사람 수·진행 중인 사람 수·완주 비율을 서버 기록으로 뽑을 때마다 다시 계산해서, 남은 경품이 그날 안에 다 나가도록 움직여요. 22:00 최종 입장 뒤에는 인원이 확정돼 더 정확해져요. 각 창 마감 직전(앞 창 15분·뒤 창 30분)에는 남은 경품이 바로 나와요.</p>
       <label>사전예약자 수(명)<input type="number" min={0} inputMode="numeric" style={inp} value={rsv} placeholder="예: 480" onChange={(e) => setRsv(e.target.value)} /></label>
       {d.day.rsv_count == null ? <p style={{ margin: "8px 0" }}><b style={{ color: "#c62828" }}>미입력 — 지금은 예전 순차 개방 방식으로 동작해요</b></p> : null}
       <button className="btn" onClick={() => saveRsv()} disabled={rsv === ""}>예약자 수 저장</button>
@@ -80,7 +89,7 @@ export default function DayEditor({ date }: { date: string }) {
           <b>지금 추정</b> <span className="muted">(새로고침하면 갱신)</span>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 10px", marginTop: 6 }}>
             <span>예약자</span><b>{d.forecast.rsv}명</b>
-            <span>시작(예약번호 입력)</span><b>{d.forecast.started}명</b>
+            <span>시작(본인 번호 입력)</span><b>{d.forecast.started}명</b>
             <span>진행 중 / 이탈 추정</span><b>{d.forecast.in_progress}명 / {d.forecast.stale}명</b>
             <span>뽑기 완료</span><b>{d.forecast.drawn}명</b>
             <span>더 올 것으로 보는 시작</span><b>{d.forecast.future_starts}명</b>
@@ -150,6 +159,21 @@ export default function DayEditor({ date }: { date: string }) {
       <input style={inp} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="변경 사유 (필수, 이력에 남습니다)" />
       {d.draws > 0 ? <p className="muted">이 날은 배출 기록이 있어 창 전체 교체는 막혀 있어요 — 각 줄의 [수량만 저장]으로 조정하세요.</p>
                    : <button className="btn" onClick={saveWindows} disabled={reason.trim().length < 2}>경품 창 전체 저장</button>}
+    </div>
+
+    <div className="card" style={{ border: d.adjust ? "2px solid #1a7f37" : undefined }}>
+      <h2 style={{ marginTop: 0 }}>수기 보정 (최종 집계)</h2>
+      <p className="muted">현장에서 수기로 처리해 시스템 기록과 다를 때, <b>최종 수치</b>를 여기에 넣어요. 통계·CSV·결과보고에는 이 값만 나가고, 입력 사유·입력자는 이력에만 남아요. 저장하면 이 날 경품 창의 '나간 수량'도 이 값으로 맞춰져서 다음 운영일로 잘못 이월되지 않아요.</p>
+      {d.system ? <p className="muted">시스템 기록: 시작 {d.system.started} · 1등 {d.system.g1} · 2등 {d.system.g2} · 3등 {d.system.g3} · 참가상 {d.system.card}</p> : null}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        {([["participants", "참여 인원"], ["local_cnt", "관내"], ["out_cnt", "관외"], ["g1", "1등 지급"], ["g2", "2등 지급"], ["g3", "3등 지급"], ["card", "참가상"]] as [string, string][]).map(([k, l]) => (
+          <label key={k}>{l}<input type="number" min={0} inputMode="numeric" style={inp} value={adj[k]} onChange={(e) => setAdj({ ...adj, [k]: e.target.value })} /></label>))}
+      </div>
+      <input style={{ ...inp, marginTop: 8 }} value={adj.note} onChange={(e) => setAdj({ ...adj, note: e.target.value })} placeholder="메모 (예: 첫날 수기 집계)" />
+      <input style={{ ...inp, marginTop: 8 }} value={adjReason} onChange={(e) => setAdjReason(e.target.value)} placeholder="변경 사유 (필수, 이력에 남습니다)" />
+      <button className="btn" onClick={saveAdj} disabled={adjReason.trim().length < 2 || adj.participants === ""}>최종 집계 저장</button>
+      {d.adjust ? <><p className="muted">마지막 저장 {d.adjust.operator} · {new Date(d.adjust.updated_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</p>
+        <button className="btn secondary" onClick={clearAdj} disabled={adjReason.trim().length < 2}>보정 해제 (시스템 기록으로)</button></> : null}
     </div>
 
     <div className="card">

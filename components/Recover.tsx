@@ -9,6 +9,7 @@ export default function Recover() {
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const fmt = (d: string) => d.length <= 6 ? d : d.length <= 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
   const go = async () => {
     setBusy(true); setErr(null);
     const r = await fetch("/api/session/recover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ joinCode: code }) });
@@ -17,12 +18,13 @@ export default function Recover() {
     if (j.ok) router.replace("/s"); else setErr(errText(j.code));
   };
   return (<>
-    <h1>참여번호로 이어서 하기</h1>
+    <h1>이어서 하기</h1>
     <div className="card">
-      <p className="muted">시작할 때 받은 6자리 <b>참여번호</b>를 입력하세요. (<b>예약번호와 다른 번호입니다</b> — 참여번호는 시작 후 내 별자리 화면에 표시돼요.) 이어서 하면 이전 화면(다른 브라우저)은 더 이상 쓸 수 없어요.</p>
-      <input className="code" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="000000" />
+      <p className="muted">예약할 때 적은 <b>본인 휴대폰번호</b>를 입력하세요. 폰이 바뀌었거나 화면이 사라졌을 때 오늘 진행 중인 참여로 돌아가요. 다른 폰에서 보던 화면도 그대로 쓸 수 있어요.</p>
+      <input className="code" type="tel" inputMode="numeric" autoComplete="tel" maxLength={13} value={fmt(code)} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="010-0000-0000" style={{ letterSpacing: 2 }} />
       {err ? <p>{err}</p> : null}
-      <button className="btn" onClick={go} disabled={code.length !== 6 || busy}>{busy ? "확인 중…" : "이어서 하기"}</button>
+      <button className="btn" onClick={go} disabled={!(/^01[0-9][0-9]{7,8}$/.test(code) || code.length === 6) || busy}>{busy ? "확인 중…" : "이어서 하기"}</button>
+      <p className="muted" style={{ fontSize: 13 }}>안내 요원이 알려 준 6자리 참여번호로도 이어서 할 수 있어요. 시작 표식에 휴대폰을 다시 대고 본인 번호를 넣어도 같아요.</p>
     </div>
   </>);
 }

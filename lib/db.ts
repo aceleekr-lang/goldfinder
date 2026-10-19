@@ -20,7 +20,7 @@ const FN = new Set([
   "wish_submit", "ticket_status", "draw_execute",
   "admin_login", "admin_session_find", "draw_redeem", "draw_redeem_by_pin", "desk_code_now", "desk_recent_draws", "admin_manual_star", "admin_manual_ticket",
   "admin_force_end", "admin_end_stale", "tag_toggle", "settings_set", "admin_dashboard", "board_data",
-  "admin_opday_list", "admin_opday_get", "admin_opday_set", "admin_slots_set", "admin_prizes_set", "admin_windows_set_day", "admin_window_quota_set", "admin_opday_copy", "admin_rsv_set",
+  "admin_opday_list", "admin_opday_get", "admin_opday_set", "admin_slots_set", "admin_prizes_set", "admin_windows_set_day", "admin_window_quota_set", "admin_opday_copy", "admin_rsv_set", "admin_session_reset", "admin_day_adjust_set", "admin_day_adjust_clear", "admin_purge_personal",
   "admin_export_days", "admin_export_draws",
   "admin_content_get", "admin_story_set", "admin_quiz_set", "admin_ticket_get",
   "admin_tags", "admin_tag_encoded", "admin_settings_get", "admin_desk_secret_rotate", "admin_operators_list", "admin_operator_set",
