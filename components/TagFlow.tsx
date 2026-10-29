@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StarSlots from "./StarSlots";
 import StoryCard from "./StoryCard";
-import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE_CODE, RSV_NOTE2_CODE, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
+import { errText, AFTER_NOTE, RSV_URL, RSV_NOTE, RSV_NOTE2, RSV_NOTE_CODE, RSV_NOTE2_CODE, RSV_NOTE_WALKIN, RSV_NOTE2_WALKIN, RSV_NOTE3, COLOR_ORDER, COLOR_NAME, COLOR_WORD, COLOR_HEX, withColor } from "@/lib/copy";
 import { readMark } from "./TestBanner";
 import MapIntro from "./MapIntro";
 import GateIntro from "./fx/GateIntro";
@@ -23,6 +23,9 @@ function Countdown({ sec, then, fmt }: { sec: number; then: string; fmt: (n: num
 function seenOnce(key: string): boolean { try { if (localStorage.getItem(key)) return true; localStorage.setItem(key, "1"); } catch {} return false; }
 
 type Resp = { ok: boolean; status?: string; code?: string; [k: string]: any };
+// 현장 참여 입력 보기 (2026-10-29) — 서버 _walkin_valid와 같은 값
+const WALKIN_AGES = ["10세 미만", "10대", "20대", "30대", "40대", "50대", "60대", "70대 이상"];
+const WALKIN_SIDO = ["서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종", "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주"];
 type Props = { tagId: string; role: "start" | "star" | "exit"; color: string | null; colorName?: string };
 
 async function post(url: string, body: unknown): Promise<Resp> {
@@ -49,15 +52,27 @@ function StartFlow({ tagId }: { tagId: string }) {
   const [phase, setPhase] = useState<"form" | "gate" | "map">("form");   // 예약번호 확인 → 문 두드리기 → 지도·역주행 동의 → 별자리 화면
   useEffect(() => { setMark(readMark()); }, []);
   const [mode, setMode] = useState<"phone" | "code">("phone");   // 예약 확인 열쇠 (서버 설정 rsv_key)
-  useEffect(() => { fetch("/api/session/start").then((r) => r.json()).then((j) => { if (j.rsv_key === "code") setMode("code"); }).catch(() => {}); }, []);
-  const start = async () => {
+  const [walkin, setWalkin] = useState(false);   // 현장 접수 허용 (서버 설정 walkin, 2026-10-29)
+  useEffect(() => { fetch("/api/session/start").then((r) => r.json()).then((j) => { if (j.rsv_key === "code") setMode("code"); setWalkin(j.walkin === true); }).catch(() => {}); }, []);
+  // 현장 참여 (2026-10-29): 예약에 없는 번호 → 안내 → 성별·나이대·거주지 입력 → 확인 → 시작. 서버가 시작 순간에 500명 마감을 다시 검사
+  const [wstep, setWstep] = useState<"none" | "offer" | "form" | "confirm">("none");
+  const [wfull, setWfull] = useState(false);
+  const [wg, setWg] = useState<"M" | "F" | "">("");
+  const [wa, setWa] = useState("");
+  const [wr, setWr] = useState("");   // "관내" | "관외:<시·도>"
+  const [wsido, setWsido] = useState("");
+  const start = async (walkin?: { gender: string; age_band: string; region: string }) => {
     setBusy(true); setR(null);
-    const res = await post("/api/session/start", { tagId, rsvCode: code });
+    const res = await post("/api/session/start", { tagId, rsvCode: code, walkin });
     setBusy(false);
     if (res.ok && res.status === "STARTED") { setName((res.name as string) || ""); setPhase("gate"); return; }
     if (res.ok && (res.status === "RESUMED" || res.status === "REATTACHED")) { router.replace("/s"); return; }   // REATTACHED: 본인 번호로 이어서 (2026-10-19)
+    if (!res.ok && res.code === "RSV_NOTFOUND_WALKIN") { setWfull(res.full === true); setWstep("offer"); return; }
+    if (!res.ok && res.code === "DAY_FULL") { setWstep("none"); }
     setR(res);   // COMPLETED(당일 참여 완료) 또는 오류
   };
+  const wRegion = wr === "관내" ? "관내" : wsido ? `관외:${wsido}` : "";
+  const wValid = (wg === "M" || wg === "F") && WALKIN_AGES.includes(wa) && wRegion !== "";
   const fmtPhone = (d: string) => d.length <= 3 ? d : d.length <= 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
   const valid = mode === "phone" ? /^01[0-9][0-9]{7,8}$/.test(code) : code.length === 6;
   if (name !== null) {
@@ -65,6 +80,54 @@ function StartFlow({ tagId }: { tagId: string }) {
       <h1>{name ? `${name}님, 시작합니다` : "시작합니다"}</h1><div className="card"><p>별자리 화면으로 이동해요…</p></div>
       {phase === "gate" ? <GateIntro name={name} onDone={() => setPhase("map")} /> : null}
       {phase === "map" ? <MapIntro onDone={() => router.replace("/s")} /> : null}
+    </>);
+  }
+  if (wstep === "offer") {
+    return (<>
+      <h1>예약 내역이 없는 번호예요</h1>
+      <div className="card">
+        <p>예약 내역이 없는 번호입니다. 예약하셨다면 번호를 다시 확인해 주세요. 예약하지 않으셨으면 <b>현장 참여</b>로 시작할 수 있어요.</p>
+        <p className="muted">입력한 번호: <b>{fmtPhone(code)}</b></p>
+        {wfull ? <p style={{ color: "#c62828", fontWeight: 700 }}>{errText("DAY_FULL")}</p> : null}
+      </div>
+      <button className="btn secondary" onClick={() => setWstep("none")}>번호 다시 입력</button>
+      {!wfull ? <button className="btn" onClick={() => setWstep("form")}>현장 참여로 시작</button> : null}
+    </>);
+  }
+  if (wstep === "form" || wstep === "confirm") {
+    const pick = (on: boolean): React.CSSProperties => ({ minHeight: 48, fontSize: 17, fontWeight: 700, borderRadius: 12, border: `2px solid ${on ? "#141B33" : "#ccc"}`, background: on ? "#141B33" : "#fff", color: on ? "#fff" : "#141B33", cursor: "pointer", padding: "8px 10px" });
+    if (wstep === "confirm") {
+      return (<>
+        <h1>이 정보가 맞나요?</h1>
+        <div className="card" style={{ fontSize: 20, lineHeight: 1.8 }}>
+          <div>휴대폰번호 <b>{fmtPhone(code)}</b></div>
+          <div>성별 <b>{wg === "M" ? "남" : "여"}</b></div>
+          <div>나이대 <b>{wa}</b></div>
+          <div>거주지 <b>{wr === "관내" ? "밀양" : wsido}</b></div>
+        </div>
+        {r && !r.ok ? <div className="card"><p style={{ color: "#c62828", fontWeight: 700 }}>{errText(r.code)}</p></div> : null}
+        <button className="btn" disabled={busy} onClick={() => start({ gender: wg, age_band: wa, region: wRegion })}>{busy ? "시작하는 중…" : "맞아요, 시작"}</button>
+        <button className="btn secondary" disabled={busy} onClick={() => setWstep("form")}>고칠게요</button>
+      </>);
+    }
+    return (<>
+      <h1>현장 참여</h1>
+      <div className="card"><p className="muted">통계용으로만 쓰이고, 휴대폰번호와 함께 2027. 1. 7.까지 보관 후 삭제돼요.</p>
+        <p style={{ fontWeight: 700, margin: "10px 0 6px" }}>성별</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <button style={pick(wg === "M")} onClick={() => setWg("M")}>남</button><button style={pick(wg === "F")} onClick={() => setWg("F")}>여</button></div>
+        <p style={{ fontWeight: 700, margin: "14px 0 6px" }}>나이대</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          {WALKIN_AGES.map((a) => <button key={a} style={pick(wa === a)} onClick={() => setWa(a)}>{a}</button>)}</div>
+        <p style={{ fontWeight: 700, margin: "14px 0 6px" }}>거주지</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <button style={pick(wr === "관내")} onClick={() => { setWr("관내"); setWsido(""); }}>밀양</button>
+          <button style={pick(wr === "관외")} onClick={() => setWr("관외")}>그 외 시·도</button></div>
+        {wr === "관외" ? <select value={wsido} onChange={(e) => setWsido(e.target.value)} style={{ width: "100%", minHeight: 48, fontSize: 17, marginTop: 8, borderRadius: 10, padding: "6px 10px" }}>
+          <option value="">시·도를 고르세요</option>{WALKIN_SIDO.map((x) => <option key={x} value={x}>{x}</option>)}</select> : null}
+      </div>
+      <button className="btn" disabled={!wValid} onClick={() => { setR(null); setWstep("confirm"); }}>다음</button>
+      <button className="btn secondary" onClick={() => setWstep("none")}>번호 다시 입력</button>
     </>);
   }
   if (r?.ok && r.status === "COMPLETED") {
@@ -86,8 +149,8 @@ function StartFlow({ tagId }: { tagId: string }) {
     <>
       <h1>별찾기를 시작할까요?</h1>
       <div className="card">
-        <p>{mode === "phone" ? RSV_NOTE : RSV_NOTE_CODE}</p>
-        <p className="muted">{mode === "phone" ? RSV_NOTE2 : RSV_NOTE2_CODE}</p>
+        <p>{mode !== "phone" ? RSV_NOTE_CODE : walkin ? RSV_NOTE_WALKIN : RSV_NOTE}</p>
+        <p className="muted">{mode !== "phone" ? RSV_NOTE2_CODE : walkin ? RSV_NOTE2_WALKIN : RSV_NOTE2}</p>
         <p className="muted">{RSV_NOTE3}</p>
       </div>
       <div className="card">
@@ -97,7 +160,8 @@ function StartFlow({ tagId }: { tagId: string }) {
             value={fmtPhone(code)} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 11))}
             style={{ width: "100%", fontSize: 26, letterSpacing: 2, textAlign: "center", padding: 10, borderRadius: 10, border: "1px solid var(--line, #ccc)" }} />
           {mark ? <p style={{ color: "#c62828", fontWeight: 700, margin: "6px 0" }}>{mark.includes("r") ? "테스트폰 · 실제 예약 모드: 예약앱에 있는 진짜 휴대폰번호를 넣으세요 (사용 처리돼요)." : "테스트폰: 아무 휴대폰번호(예: 010-0000-0000)로 시작할 수 있어요."}</p> : null}
-          <p className="muted" style={{ marginTop: 6 }}>예약할 때 적은 번호예요. 예약 여부는 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 확인할 수 있어요.</p>
+          {walkin ? <p className="muted" style={{ marginTop: 6 }}>예약하지 않았어도 본인 번호로 현장 참여할 수 있어요. 이 번호로 이어하기·현장 지원을 해요.</p>
+            : <p className="muted" style={{ marginTop: 6 }}>예약할 때 적은 번호예요. 예약 여부는 <a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회</a>에서 확인할 수 있어요.</p>}
         </>) : (<>
           <label htmlFor="rsv" style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>본인 예약번호 6자리</label>
           <input id="rsv" inputMode="numeric" pattern="[0-9]*" maxLength={6} autoComplete="one-time-code" placeholder="예) 123456"
@@ -109,9 +173,9 @@ function StartFlow({ tagId }: { tagId: string }) {
       </div>
       {errCode ? <div className="card"><p>{errMsg}</p>
         {errCode === "RSV_NOTFOUND" ? <p className="muted"><a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회로 가기</a></p> : null}</div> : null}
-      <button className="btn" onClick={start} disabled={busy || !valid}>{busy ? "확인 중…" : "시작하기"}</button>
+      <button className="btn" onClick={() => start()} disabled={busy || !valid}>{busy ? "확인 중…" : "시작하기"}</button>
       <div className="card">
-        <p className="muted">정원 곳곳의 별 표식에 휴대폰을 대고, 이야기를 읽은 뒤 문제를 맞히면 별이 깨어나요. 5가지 색을 모두 깨우고 <b>출구 표식</b>을 태그하면 뽑기권!</p>
+        <p className="muted">정원 곳곳의 별 표식 QR을 카메라로 찍고, 이야기를 읽은 뒤 문제를 맞히면 별이 깨어나요. 5가지 색을 모두 깨우고 <b>출구 표식</b> QR을 찍으면 뽑기권!</p>
         <p className="muted">별 표식은 <b>5가지 색 스티커</b>로 구분돼요. 색을 보고 아직 못 깨운 별을 찾아가세요. 참여는 1인 1일 1회, 이미 시작했다면 그대로 이어집니다.</p>
         <ColorLegend />
       </div>
@@ -201,10 +265,10 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
           <div className="card">
             <p className="result" style={ans.correct ? { color: color === "white" ? "#6b6b6b" : COLOR_HEX[color], fontWeight: 900 } : undefined}>{ans.correct ? `${colorName}이 깨어났어요 ★` : "아쉬워요"}</p>
             {ans.correct ? null : (
-              <p>{ans.retry_available ? "재도전권 1회가 남아 있어요. 같은 색의 다른 별을 태그하면 새 문제로 다시 도전할 수 있어요." : "이 색은 오늘 깨울 수 없지만, 다른 색 별을 계속 찾을 수 있어요."}</p>
+              <p>{ans.retry_available ? "재도전권 1회가 남아 있어요. 같은 색의 다른 별 QR을 찍으면 새 문제로 다시 도전할 수 있어요." : "이 색은 오늘 깨울 수 없지만, 다른 색 별을 계속 찾을 수 있어요."}</p>
             )}
             <StarSlots stars={(ans.stars ?? stars) as Record<string, string>} />
-            {ans.all_won ? <p><b>별자리 완성!</b> 출구 표식을 태그하면 뽑기권이 나와요.</p> : null}
+            {ans.all_won ? <p><b>별자리 완성!</b> 출구 표식 QR을 찍으면 뽑기권이 나와요.</p> : null}
             <Link className="btn" href="/s">내 별자리</Link>
           </div>
         ) : <div className="card"><p>{errText(ans.code)}</p><button className="btn secondary" onClick={() => { setAns(null); setPicked(null); }}>다시 시도</button></div>
@@ -245,9 +309,9 @@ function StarFlow({ tagId, color, colorName }: { tagId: string; color: string; c
   const msg: Record<string, React.ReactNode> = {
     DUP_COLOR: `${colorName}은 이미 깨웠어요. 아직 잠든 별: ${remaining || "없음"}`,
     ALREADY_FAILED: `이 색은 오늘 깨울 수 없어요. 아직 잠든 다른 별: ${remaining || "없음"}`,
-    COOLDOWN: <>이 별은 방금 다른 분이 깨웠어요. <Countdown sec={r.seconds_left ?? 0} then="지금 다시 태그해 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 깨어나요.</u>} />
+    COOLDOWN: <>이 별은 방금 다른 분이 깨웠어요. <Countdown sec={r.seconds_left ?? 0} then="지금 다시 QR을 찍어 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 깨어나요.</u>} />
       {(r.others_available ?? 0) > 0 ? <><br /><span className="muted">같은 구역에 {colorName}이 {r.others_available}개 더 있어요. 기다리기 싫으면 옆 별을 찾아보세요.</span></> : null}</>,
-    TOO_FAST: <>너무 빨라요! <Countdown sec={r.wait_sec ?? 30} then="지금 다시 태그해 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 태그해 주세요.</u>} /></>,
+    TOO_FAST: <>너무 빨라요! <Countdown sec={r.wait_sec ?? 30} then="지금 다시 QR을 찍어 보세요!" fmt={(n) => <u style={{ textDecorationColor: "#c62828", textDecorationThickness: 3, textUnderlineOffset: 4 }}><b style={{ fontSize: 24, color: "#c62828" }}>{n}초</b> 뒤에 다시 찍어 주세요.</u>} /></>,
   };
   return (<>
     <StarHead color={color} title={colorName} />
@@ -296,7 +360,7 @@ function ExitFlow({ tagId }: { tagId: string }) {
     return (<>
       <h1>별자리 완성!</h1>
       <StarSlots stars={stars} />
-      <div className="card"><p>뽑기권은 <b>{r.minutes_left}분 뒤</b> 출구 표식을 다시 태그하면 나와요. 그동안 정원을 조금 더 둘러보세요.</p></div>
+      <div className="card"><p>뽑기권은 <b>{r.minutes_left}분 뒤</b> 출구 표식 QR을 다시 찍으면 나와요. 그동안 정원을 조금 더 둘러보세요.</p></div>
       <Link className="btn secondary" href="/s">내 별자리</Link>
     </>);
   }

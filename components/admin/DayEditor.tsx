@@ -6,7 +6,7 @@ type W = { id: number; grade: string; start: string; end: string; quota: number;
 type Detail = { ok: boolean; code?: string; day: { op_date: string; open_at: string; last_entry: string; close_at: string; grace_min: number; active: boolean; rsv_count: number | null } | null;
   forecast?: Forecast | null;
   adjust?: { participants: number; local_cnt: number | null; out_cnt: number | null; g1: number; g2: number; g3: number; card: number; note: string | null; operator: string; updated_at: string } | null;
-  system?: { started: number; g1: number; g2: number; g3: number; card: number };
+  system?: { started: number; walkin?: number; reserved_today?: number | null; g1: number; g2: number; g3: number; card: number };
   slots: Slot[]; prizes: Record<string, string>; windows: W[]; draws: number };
 
 type Forecast = { rsv: number; started: number; in_progress: number; stale: number; drawn: number; future_starts: number; elapsed: number; start_rate: number; finish_rate: number;
@@ -78,9 +78,9 @@ export default function DayEditor({ date }: { date: string }) {
 
 
     <div className="card" style={{ border: d.day.rsv_count == null ? "2px solid #c62828" : undefined }}>
-      <h2 style={{ marginTop: 0 }}>오늘 사전예약자 수 (행사 시작 전 입력)</h2>
+      <h2 style={{ marginTop: 0 }}>오늘 예상 참여자 수 (행사 시작 전 입력 — 예약+현장)</h2>
       <p className="muted">참여율은 자동이에요. 본인 번호를 넣고 시작한 사람 수·진행 중인 사람 수·완주 비율을 서버 기록으로 뽑을 때마다 다시 계산해서, 남은 경품이 그날 안에 다 나가도록 움직여요. 22:00 최종 입장 뒤에는 인원이 확정돼 더 정확해져요. 각 창 마감 직전(앞 창 15분·뒤 창 30분)에는 남은 경품이 바로 나와요.</p>
-      <label>사전예약자 수(명)<input type="number" min={0} inputMode="numeric" style={inp} value={rsv} placeholder="예: 480" onChange={(e) => setRsv(e.target.value)} /></label>
+      <label>예상 참여자 수(명)<input type="number" min={0} inputMode="numeric" style={inp} value={rsv} placeholder="예: 500" onChange={(e) => setRsv(e.target.value)} /></label>
       {d.day.rsv_count == null ? <p style={{ margin: "8px 0" }}><b style={{ color: "#c62828" }}>미입력 — 지금은 예전 순차 개방 방식으로 동작해요</b></p> : null}
       <button className="btn" onClick={() => saveRsv()} disabled={rsv === ""}>예약자 수 저장</button>
       {d.day.rsv_count != null ? <button className="btn secondary" onClick={() => saveRsv(true)}>입력 해제 (순차 개방으로)</button> : null}
@@ -164,7 +164,7 @@ export default function DayEditor({ date }: { date: string }) {
     <div className="card" style={{ border: d.adjust ? "2px solid #1a7f37" : undefined }}>
       <h2 style={{ marginTop: 0 }}>수기 보정 (최종 집계)</h2>
       <p className="muted">현장에서 수기로 처리해 시스템 기록과 다를 때, <b>최종 수치</b>를 여기에 넣어요. 통계·CSV·결과보고에는 이 값만 나가고, 입력 사유·입력자는 이력에만 남아요. 저장하면 이 날 경품 창의 '나간 수량'도 이 값으로 맞춰져서 다음 운영일로 잘못 이월되지 않아요.</p>
-      {d.system ? <p className="muted">시스템 기록: 시작 {d.system.started} · 1등 {d.system.g1} · 2등 {d.system.g2} · 3등 {d.system.g3} · 참가상 {d.system.card}</p> : null}
+      {d.system ? <p className="muted">시스템 기록: 시작 {d.system.started}(현장 참여 {d.system.walkin ?? 0}{d.system.reserved_today != null ? ` · 오늘 사전예약 ${d.system.reserved_today}명` : ""}) · 1등 {d.system.g1} · 2등 {d.system.g2} · 3등 {d.system.g3} · 참가상 {d.system.card}</p> : null}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
         {([["participants", "참여 인원"], ["local_cnt", "관내"], ["out_cnt", "관외"], ["g1", "1등 지급"], ["g2", "2등 지급"], ["g3", "3등 지급"], ["card", "참가상"]] as [string, string][]).map(([k, l]) => (
           <label key={k}>{l}<input type="number" min={0} inputMode="numeric" style={inp} value={adj[k]} onChange={(e) => setAdj({ ...adj, [k]: e.target.value })} /></label>))}

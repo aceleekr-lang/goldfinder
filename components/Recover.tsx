@@ -24,7 +24,7 @@ export default function Recover() {
       <input className="code" type="tel" inputMode="numeric" autoComplete="tel" maxLength={13} value={fmt(code)} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="010-0000-0000" style={{ letterSpacing: 2 }} />
       {err ? <p>{err}</p> : null}
       <button className="btn" onClick={go} disabled={!(/^01[0-9][0-9]{7,8}$/.test(code) || code.length === 6) || busy}>{busy ? "확인 중…" : "이어서 하기"}</button>
-      <p className="muted" style={{ fontSize: 13 }}>안내 요원이 알려 준 6자리 참여번호로도 이어서 할 수 있어요. 시작 표식에 휴대폰을 다시 대고 본인 번호를 넣어도 같아요.</p>
+      <p className="muted" style={{ fontSize: 13 }}>안내 요원이 알려 준 6자리 참여번호로도 이어서 할 수 있어요. 시작 표식 QR을 다시 찍고 본인 번호를 넣어도 같아요.</p>
     </div>
   </>);
 }

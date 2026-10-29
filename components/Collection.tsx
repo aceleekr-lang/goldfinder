@@ -18,7 +18,7 @@ export default function Collection() {
       <h1>내 별자리</h1>
       <div className="card"><p>{s.ok ? "오늘 참여 기록이 없어요." : errText(s.code)}</p></div>
       <Link className="btn" href="/recover">휴대폰번호로 이어서 하기</Link>
-      <p className="muted">처음이라면 입구의 시작 표식을 태그해 주세요.</p>
+      <p className="muted">처음이라면 입구의 시작 표식 QR을 찍어 주세요.</p>
     </>);
   }
   const stars = s.stars ?? {};
@@ -35,17 +35,17 @@ export default function Collection() {
         {s.session_status === "completed" && s.ticket ? (
           <Link className="btn" href="/ticket">뽑기권 보기</Link>
         ) : won === 5 ? (
-          <p>별자리 완성! <b>출구 표식</b>을 태그하면 뽑기권이 나와요.</p>
+          <p>별자리 완성! <b>출구 표식</b> QR을 찍으면 뽑기권이 나와요.</p>
         ) : cannotComplete ? (
           <p>오늘은 <b>{maxReachable}개까지!</b> 남은 별을 마저 깨우고 출구에서 <b>굿바비 행운부적</b>를 받아가세요.</p>
         ) : (
           <p>아직 {s.needed?.filter((n) => n.state !== "won").map((n) => withColor(n.color)).join("·")}이 잠들어 있어요. <b>같은 색 스티커</b>가 붙은 별 표식을 찾아가세요.</p>
         )}
-        <p className="muted">재도전권: {s.retry_used ? "사용함" : "1회 남음"}{!s.retry_used && failed > 0 ? " — 틀린 색의 다른 별을 태그하면 쓸 수 있어요" : ""}</p>
+        <p className="muted">재도전권: {s.retry_used ? "사용함" : "1회 남음"}{!s.retry_used && failed > 0 ? " — 틀린 색의 다른 별 QR을 찍으면 쓸 수 있어요" : ""}</p>
       </div>
       <div className="card">
         <p className="muted">화면이 사라지거나 다른 폰으로 옮길 때 필요한 번호예요. 다른 사람에게 보이지 않게 해 주세요.</p>
-        {showCode ? <><div className="bigcode">{s.join_code}</div><p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>안내 요원이 물어볼 때만 보여 주세요. 폰이 바뀌면 시작 표식에 다시 대고 <b>본인 휴대폰번호</b>를 넣으면 이어져요.</p></>
+        {showCode ? <><div className="bigcode">{s.join_code}</div><p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>안내 요원이 물어볼 때만 보여 주세요. 폰이 바뀌면 시작 표식 QR을 다시 찍고 <b>본인 휴대폰번호</b>를 넣으면 이어져요.</p></>
           : <button className="btn secondary" onClick={() => setShowCode(true)}>안내 요원용 번호 보기</button>}
       </div>
     </>

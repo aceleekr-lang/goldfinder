@@ -87,7 +87,7 @@ export default function Board() {
   const audioEl = (<><audio ref={audio} src="/gold/gold_fanfare.mp3" preload="auto" />
     {b?.test ? <div style={{ position: "fixed", left: "1vw", bottom: "1vh", zIndex: 70, background: "#c62828", color: "#fff", fontSize: "2vh", padding: "0.4vh 1vw", borderRadius: "0.8vh" }}>TEST 연출 모드 — 테스트폰 금 당첨에 반응</div> : null}</>);
   if (!b) return <div style={S.wrap}>{audioEl}{armBtn}<p style={S.title}>영남루에 흩어진 별을 찾아라</p></div>;
-  if (!b.op_day) return <div style={S.wrap}>{audioEl}{armBtn}{overlay}<p style={S.title}>영남루에 흩어진 별을 찾아라</p><p style={S.sub}>이벤트는 10. 18.~11. 8. 주말(토·일) 저녁에 운영됩니다 · 사전예약제 · 10월 20:30~23:00 / 11월 19:00~23:00 (최종 입장 22:00)</p></div>;
+  if (!b.op_day) return <div style={S.wrap}>{audioEl}{armBtn}{overlay}<p style={S.title}>영남루에 흩어진 별을 찾아라</p><p style={S.sub}>이벤트는 10. 18.~11. 8. 주말(토·일) 저녁에 운영됩니다 · 사전예약 + 현장 참여(하루 500명 선착순) · 10/31 19:30~23:00 / 11월 18:00~23:00 (최종 입장 22:00)</p></div>;
   const q = b.quota ?? {}, p = b.prizes ?? {};
   const allZero = ["g1", "g2", "g3"].every((g) => (q[g] ?? 0) === 0);
   // 슬라이드는 장마다 한 겹씩 겹쳐 두고 차례인 장만 보이게 — 장 사이·현황판과의 전환이 모두 0.5초 크로스페이드

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 type Op = { id: string; name: string; role: string; active: boolean };
 type D = { ok: boolean; code?: string; settings: Record<string, { value: string; updated_at: string; updated_by: string | null }>; desk_secret_updated_at: string; operators: Op[] };
-const LABEL: Record<string, string> = { cooldown_sec: "별 태그 쿨다운(초)", entry_cap: "입장 상한(세션 수)", min_session_min: "최소 세션 시간(분) — 미만이면 뽑기권 보류", min_tag_interval_sec: "별 태그 최소 간격(초)",
+const LABEL: Record<string, string> = { walkin: "현장 접수 허용 (1 = 예약 없이도 본인 휴대폰번호로 시작, 0 = 사전예약자만)", daily_cap: "일일 선착순 상한(명) — 예약+현장 시작 인원, 도달 시 '오늘 참여 마감' 안내", cooldown_sec: "별 태그 쿨다운(초)", entry_cap: "입장 상한(세션 수)", min_session_min: "최소 세션 시간(분) — 미만이면 뽑기권 보류", min_tag_interval_sec: "별 태그 최소 간격(초)",
   stale_min: "이탈 추정(분)", expire_min: "자동 만료(분)", desk_code_sec: "수령소 코드 갱신 주기(초)",
   start_rate: "배출 사전값 — 예약자 중 시작하는 비율(%) · 실적이 쌓이면 자동 대체", finish_rate: "배출 사전값 — 시작한 사람 중 뽑기까지 오는 비율(%) · 실적으로 자동 보정",
   purge_after: "개인정보(휴대폰번호·성별·연령대·지역) 자동 삭제일 YYYYMMDD — 행사 종료+60일" };
