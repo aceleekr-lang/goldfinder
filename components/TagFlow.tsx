@@ -53,7 +53,9 @@ function StartFlow({ tagId }: { tagId: string }) {
   useEffect(() => { setMark(readMark()); }, []);
   const [mode, setMode] = useState<"phone" | "code">("phone");   // 예약 확인 열쇠 (서버 설정 rsv_key)
   const [walkin, setWalkin] = useState(false);   // 현장 접수 허용 (서버 설정 walkin, 2026-10-29)
-  useEffect(() => { fetch("/api/session/start").then((r) => r.json()).then((j) => { if (j.rsv_key === "code") setMode("code"); setWalkin(j.walkin === true); }).catch(() => {}); }, []);
+  const [dayFull, setDayFull] = useState(false);  // 오늘 현장 참여 마감 — 번호 입력 전에 안내 (예약자는 [사전예약하신 분]으로 계속)
+  const [rsvOnly, setRsvOnly] = useState(false);
+  useEffect(() => { fetch("/api/session/start").then((r) => r.json()).then((j) => { if (j.rsv_key === "code") setMode("code"); setWalkin(j.walkin === true); setDayFull(j.full === true); }).catch(() => {}); }, []);
   // 현장 참여 (2026-10-29): 예약에 없는 번호 → 안내 → 성별·나이대·거주지 입력 → 확인 → 시작. 서버가 시작 순간에 500명 마감을 다시 검사
   const [wstep, setWstep] = useState<"none" | "offer" | "form" | "confirm">("none");
   const [wfull, setWfull] = useState(false);
@@ -61,6 +63,10 @@ function StartFlow({ tagId }: { tagId: string }) {
   const [wa, setWa] = useState("");
   const [wr, setWr] = useState("");   // "관내" | "관외:<시·도>"
   const [wsido, setWsido] = useState("");
+  const [wconsent, setWconsent] = useState(false);
+  const [wunder14, setWunder14] = useState<"" | "y" | "n">("");
+  const [wguardian, setWguardian] = useState(false);
+  const young = wa === "10세 미만" || wa === "10대";
   const start = async (walkin?: { gender: string; age_band: string; region: string }) => {
     setBusy(true); setR(null);
     const res = await post("/api/session/start", { tagId, rsvCode: code, walkin });
@@ -72,7 +78,8 @@ function StartFlow({ tagId }: { tagId: string }) {
     setR(res);   // COMPLETED(당일 참여 완료) 또는 오류
   };
   const wRegion = wr === "관내" ? "관내" : wsido ? `관외:${wsido}` : "";
-  const wValid = (wg === "M" || wg === "F") && WALKIN_AGES.includes(wa) && wRegion !== "";
+  const wValid = (wg === "M" || wg === "F") && WALKIN_AGES.includes(wa) && wRegion !== "" && wconsent && (!young || (wunder14 === "n" || (wunder14 === "y" && wguardian)));
+  const wPayload = () => ({ gender: wg, age_band: wa, region: wRegion, consent: wconsent, under14: young && wunder14 === "y", guardian: wguardian });
   const fmtPhone = (d: string) => d.length <= 3 ? d : d.length <= 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7, 11)}`;
   const valid = mode === "phone" ? /^01[0-9][0-9]{7,8}$/.test(code) : code.length === 6;
   if (name !== null) {
@@ -106,7 +113,7 @@ function StartFlow({ tagId }: { tagId: string }) {
           <div>거주지 <b>{wr === "관내" ? "밀양" : wsido}</b></div>
         </div>
         {r && !r.ok ? <div className="card"><p style={{ color: "#c62828", fontWeight: 700 }}>{errText(r.code)}</p></div> : null}
-        <button className="btn" disabled={busy} onClick={() => start({ gender: wg, age_band: wa, region: wRegion })}>{busy ? "시작하는 중…" : "맞아요, 시작"}</button>
+        <button className="btn" disabled={busy} onClick={() => start(wPayload())}>{busy ? "시작하는 중…" : "맞아요, 시작"}</button>
         <button className="btn secondary" disabled={busy} onClick={() => setWstep("form")}>고칠게요</button>
       </>);
     }
@@ -125,6 +132,17 @@ function StartFlow({ tagId }: { tagId: string }) {
           <button style={pick(wr === "관외")} onClick={() => setWr("관외")}>그 외 시·도</button></div>
         {wr === "관외" ? <select value={wsido} onChange={(e) => setWsido(e.target.value)} style={{ width: "100%", minHeight: 48, fontSize: 17, marginTop: 8, borderRadius: 10, padding: "6px 10px" }}>
           <option value="">시·도를 고르세요</option>{WALKIN_SIDO.map((x) => <option key={x} value={x}>{x}</option>)}</select> : null}
+        {young ? (<>
+          <p style={{ fontWeight: 700, margin: "14px 0 6px" }}>만 14세 미만인가요?</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button style={pick(wunder14 === "y")} onClick={() => setWunder14("y")}>예</button><button style={pick(wunder14 === "n")} onClick={() => { setWunder14("n"); setWguardian(false); }}>아니요</button></div>
+          {wunder14 === "y" ? <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 10, fontSize: 16, lineHeight: 1.5 }}>
+            <input type="checkbox" checked={wguardian} onChange={(e) => setWguardian(e.target.checked)} style={{ width: 22, height: 22, marginTop: 2 }} />
+            <span><b>보호자 동의 (필수)</b> — 보호자가 함께 있고, 아래 개인정보 수집·이용에 보호자가 동의합니다.</span></label> : null}
+        </>) : null}
+        <label style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16, fontSize: 16, lineHeight: 1.5 }}>
+          <input type="checkbox" checked={wconsent} onChange={(e) => setWconsent(e.target.checked)} style={{ width: 22, height: 22, marginTop: 2 }} />
+          <span><b>개인정보 수집·이용 동의 (필수)</b> — 항목: 휴대폰번호·성별·나이대·거주지 / 목적: 참여 시작·이어하기 확인, 현장 지원, 통계(개인 식별 불가) / 보관: 2027. 1. 7.까지, 이후 삭제 / 처리: 밀양시(주최)·운영 수탁사. 동의하지 않으면 참여할 수 없어요.</span></label>
       </div>
       <button className="btn" disabled={!wValid} onClick={() => { setR(null); setWstep("confirm"); }}>다음</button>
       <button className="btn secondary" onClick={() => setWstep("none")}>번호 다시 입력</button>
@@ -148,12 +166,18 @@ function StartFlow({ tagId }: { tagId: string }) {
   return (
     <>
       <h1>별찾기를 시작할까요?</h1>
-      <div className="card">
-        <p>{mode !== "phone" ? RSV_NOTE_CODE : walkin ? RSV_NOTE_WALKIN : RSV_NOTE}</p>
+      {dayFull && !rsvOnly ? (
+        <div className="card" style={{ borderColor: "#c62828" }}>
+          <p style={{ color: "#c62828", fontWeight: 800, fontSize: 18 }}>{errText("DAY_FULL")}</p>
+          <p className="muted">사전예약을 하신 분은 마감과 상관없이 시작할 수 있어요.</p>
+          <button className="btn" onClick={() => setRsvOnly(true)}>사전예약하신 분</button>
+        </div>) : null}
+      <div className="card" style={dayFull && !rsvOnly ? { display: "none" } : undefined}>
+        <p>{mode !== "phone" ? RSV_NOTE_CODE : dayFull ? RSV_NOTE : walkin ? RSV_NOTE_WALKIN : RSV_NOTE}</p>
         <p className="muted">{mode !== "phone" ? RSV_NOTE2_CODE : walkin ? RSV_NOTE2_WALKIN : RSV_NOTE2}</p>
         <p className="muted">{RSV_NOTE3}</p>
       </div>
-      <div className="card">
+      <div className="card" style={dayFull && !rsvOnly ? { display: "none" } : undefined}>
         {mode === "phone" ? (<>
           <label htmlFor="rsv" style={{ display: "block", fontWeight: 700, marginBottom: 6 }}>본인 휴대폰번호</label>
           <input id="rsv" type="tel" inputMode="numeric" autoComplete="tel" maxLength={13} placeholder="010-0000-0000"
@@ -173,9 +197,10 @@ function StartFlow({ tagId }: { tagId: string }) {
       </div>
       {errCode ? <div className="card"><p>{errMsg}</p>
         {errCode === "RSV_NOTFOUND" ? <p className="muted"><a href={RSV_URL} target="_blank" rel="noreferrer">예약 조회로 가기</a></p> : null}</div> : null}
-      <button className="btn" onClick={() => start()} disabled={busy || !valid}>{busy ? "확인 중…" : "시작하기"}</button>
+      {dayFull && !rsvOnly ? null : <button className="btn" onClick={() => start()} disabled={busy || !valid}>{busy ? "확인 중…" : "시작하기"}</button>}
       <div className="card">
         <p className="muted">정원 곳곳의 별 표식 QR을 카메라로 찍고, 이야기를 읽은 뒤 문제를 맞히면 별이 깨어나요. 5가지 색을 모두 깨우고 <b>출구 표식</b> QR을 찍으면 뽑기권!</p>
+        <p className="muted"><b>QR 찍는 법</b>: 휴대폰 기본 카메라(또는 네이버·카카오톡 QR)를 열어 표식의 QR에 비추고, 화면에 뜨는 링크를 누르세요. 다른 앱으로 열려도 본인 휴대폰번호로 그대로 이어져요.</p>
         <p className="muted">별 표식은 <b>5가지 색 스티커</b>로 구분돼요. 색을 보고 아직 못 깨운 별을 찾아가세요. 참여는 1인 1일 1회, 이미 시작했다면 그대로 이어집니다.</p>
         <ColorLegend />
       </div>

@@ -16,7 +16,7 @@ function pool(): Pool {
 
 // 호출 가능한 DB 함수 화이트리스트 (라우트 코드에서만 쓰지만 이중 안전장치)
 const FN = new Set([
-  "session_start", "session_recover", "session_get", "tag_attempt", "quiz_answer", "session_exit",
+  "session_start", "start_info", "session_recover", "session_get", "tag_attempt", "quiz_answer", "session_exit",
   "wish_submit", "ticket_status", "draw_execute",
   "admin_login", "admin_session_find", "draw_redeem", "draw_redeem_by_pin", "desk_code_now", "desk_recent_draws", "admin_manual_star", "admin_manual_ticket",
   "admin_force_end", "admin_end_stale", "tag_toggle", "settings_set", "admin_dashboard", "board_data",

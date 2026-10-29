@@ -6,7 +6,7 @@ type D = { ok: boolean; kst_now: string; op_day: { op_date: string; open_at: str
   entry_cap: number; cooldown_sec: number; stale_min: number;
   tags: { total: number; active: number; cooling: number; inactive: string[]; spare_on: string[]; gates_off: string[]; checked_today?: number }; test_today?: number;
   active_raw?: number; active_fresh?: number; stale?: number; stale_list?: { session_id: string; join_code: string; minutes: number; stars: number }[];
-  started_today?: number; walkin_status?: { reserved: number; walkin: number; cap: number; full: boolean; enabled: boolean }; completed?: number; expired?: number; tickets?: Record<string, number>; draws_today?: number; results_today?: Record<string, number>;
+  started_today?: number; walkin_status?: { reserved: number; walkin: number; test_walkin?: number; cap: number; remaining?: number; full: boolean; enabled: boolean }; completed?: number; expired?: number; tickets?: Record<string, number>; draws_today?: number; results_today?: Record<string, number>;
   quota_now?: Record<string, { allocated: number; remaining: number }>; quota_day?: Record<string, { allocated: number; remaining: number }>; left_total?: Record<string, number>; quota_missing?: boolean; rsv_missing?: boolean; forecast?: { rsv: number; started: number; in_progress: number; stale: number; drawn: number; expected_remaining: number; join_rate: number | null } | null;
   wishes_today?: number; manual_ops_today?: number };
 
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const [d, setD] = useState<D | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const load = () => fetch("/api/admin/dashboard").then((r) => r.json()).then(setD).catch(() => {});
-  useEffect(() => { load(); const i = setInterval(load, 30000); return () => clearInterval(i); }, []);
+  useEffect(() => { load(); const i = setInterval(load, 10000); return () => clearInterval(i); }, []);
   const endStale = async () => {
     const reason = prompt(`이탈 추정 ${d?.stale ?? 0}건을 일괄 종료합니다. 사유:`); if (!reason) return;
     const r = await fetch("/api/admin/dashboard", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "end_stale", reason }) });
@@ -31,9 +31,7 @@ export default function Dashboard() {
     {msg ? <div className="banner">{msg}</div> : null}
     {!d.op_day ? <div className="banner">오늘은 운영일이 아닙니다 — 모든 태그가 비운영 안내를 표시합니다. <Link href="/admin/opdays">운영일 관리</Link></div> : (<>
       {d.rsv_missing ? <div className="banner" style={{ background: "#fde0e0", borderColor: "#c62828" }}>오늘 예상 참여자 수(예약+현장)가 입력되지 않았어요 — 행사 시작 전에 입력해 주세요 (경품 자동 배분 기준). <Link href={`/admin/day/${d.op_day.op_date}`}>입력하기</Link></div> : null}
-      {d.walkin_status ? <div className="banner" style={d.walkin_status.full ? { background: "#fde0e0", borderColor: "#c62828" } : undefined}>
-        오늘 참여 인원 <b>{d.walkin_status.reserved + d.walkin_status.walkin} / {d.walkin_status.cap}</b> (사전예약 {d.walkin_status.reserved} + 현장 {d.walkin_status.walkin})
-        {d.walkin_status.full ? <b> — 현장 참여 마감</b> : null}{!d.walkin_status.enabled ? " · 현장 접수 꺼짐(설정)" : null} <Link href="/admin/settings">상한 바꾸기</Link></div> : null}
+      {d.walkin_status ? <CapPanel w={d.walkin_status} onChanged={load} /> : null}
       {d.forecast ? <p className="muted">오늘 예약 {d.forecast.rsv} · 시작 {d.forecast.started} · 진행 중 {d.forecast.in_progress}(이탈 추정 {d.forecast.stale}) · 뽑기 {d.forecast.drawn} · 예상 남은 뽑기 {Math.ceil(d.forecast.expected_remaining)} · 참여율 추정 {d.forecast.join_rate == null ? "-" : Math.round(d.forecast.join_rate * 100) + "%"}</p> : null}
       {d.quota_missing ? <div className="banner" style={{ background: "#fde0e0", borderColor: "#c62828" }}>오늘 당첨 수량 배정이 없습니다 — 뽑기가 전부 참가상으로 나갑니다. <Link href={`/admin/day/${d.op_day.op_date}`}>배정하기</Link></div> : null}
       <div className="card">
@@ -81,4 +79,34 @@ export default function Dashboard() {
       <p className="muted"><a href="/api/admin/export?kind=days">일별 참가·지급 집계</a> · <a href="/api/admin/export?kind=tags">태그별 인증 현황</a> · <a href="/api/admin/export?kind=draws">배출 로그</a></p>
     </div>
   </>);
+}
+
+
+// 오늘 참여 숫자판 + 상한 입력 + 시험 기록 지우기 (2026-10-29). 10초마다 갱신(load)
+function CapPanel({ w, onChanged }: { w: NonNullable<D["walkin_status"]>; onChanged: () => void }) {
+  const [cap, setCap] = useState(String(w.cap));
+  const [msg, setMsg] = useState("");
+  useEffect(() => { setCap(String(w.cap)); }, [w.cap]);
+  const save = async () => {
+    const r = await fetch("/api/admin/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "setting", key: "daily_cap", value: cap }) }).then((x) => x.json());
+    setMsg(r.ok ? `상한 ${cap}명으로 저장됨` : "저장 실패"); onChanged();
+  };
+  const purge = async () => {
+    if (!confirm("시험 표시(테스트폰)로 생긴 참여 기록을 모두 지울까요? 관람객 기록은 지워지지 않아요.")) return;
+    const r = await fetch("/api/admin/test", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "purge" }) }).then((x) => x.json());
+    setMsg(r.ok ? `시험 기록 ${r.sessions ?? 0}건 삭제됨` : "삭제 실패"); onChanged();
+  };
+  const total = w.reserved + w.walkin;
+  return (
+    <div className="card" style={{ borderColor: w.full ? "#c62828" : undefined, background: w.full ? "#fde0e0" : undefined }}>
+      <div style={{ fontSize: 22, fontWeight: 900 }}>오늘 참여 {total} / {w.cap} <span style={{ fontSize: 15, fontWeight: 500 }}>(사전예약 {w.reserved}명 + 현장 {w.walkin}명{w.test_walkin ? ` · 시험 ${w.test_walkin} 포함` : ""})</span></div>
+      <div style={{ fontSize: 17, marginTop: 4 }}>남은 현장 자리 <b>{w.remaining ?? Math.max(w.cap - total, 0)}</b>{w.full ? <b style={{ color: "#c62828" }}> — 현장 참여 마감</b> : null}{!w.enabled ? <span className="muted"> · 현장 접수 꺼짐(설정)</span> : null}</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10, flexWrap: "wrap" }}>
+        <label>오늘 상한 <input type="number" min={0} inputMode="numeric" value={cap} onChange={(e) => setCap(e.target.value)} style={{ width: 90, fontSize: 16, padding: 6, borderRadius: 8, border: "1px solid #ccc", marginLeft: 6 }} /></label>
+        <button className="btn secondary" style={{ margin: 0 }} onClick={save}>상한 저장</button>
+        <button className="btn secondary" style={{ margin: 0 }} onClick={purge}>시험 기록 지우기</button>
+        {msg ? <span className="muted">{msg}</span> : null}
+      </div>
+      <p className="muted" style={{ margin: "8px 0 0" }}>사전예약 인원은 예약앱(rsv_day_reserved)에서 가져오고, 상한은 "사전예약 + 현장 시작"에 적용돼요. 예약자는 마감 뒤에도 시작할 수 있어요.</p>
+    </div>);
 }
